@@ -60,7 +60,7 @@ st.caption("Sift through medical conversations. Surface what matters.")
 # --- Sidebar Navigation ---
 page = st.sidebar.radio(
     "Navigation",
-    ["Upload & Process", "Visit History", "Analytics Dashboard"],
+    ["Upload & Process", "Live Transcription", "Visit History", "Analytics Dashboard"],
 )
 
 
@@ -317,6 +317,14 @@ if page == "Upload & Process":
                         )
                     except Exception as e:
                         st.error(f"PDF export failed: {e}")
+
+
+# ========================================
+# PAGE: Live Transcription
+# ========================================
+elif page == "Live Transcription":
+    from live_transcribe_component import render_live_transcription_tab
+    render_live_transcription_tab()
 
 
 # ========================================

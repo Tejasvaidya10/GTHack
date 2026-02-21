@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from core.extraction import extract_patient_summary, extract_clinician_note
-from core.risk_scoring import calculate_risk_score
 from core.clinical_trials import find_relevant_trials
 from core.literature_search import search_literature
 from core.phi_redaction import redact_phi
