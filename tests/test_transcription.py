@@ -59,7 +59,7 @@ def test_transcription_mocked_whisper(mock_get_model, synthetic_wav):
     result = transcribe_audio(synthetic_wav)
 
     assert isinstance(result, TranscriptionResult)
-    assert result.text == "Hello, how are you feeling today?"
+    assert "Hello, how are you feeling today?" in result.text
     assert len(result.segments) == 1
     assert result.language == "en"
     assert result.duration_seconds == 2.5
@@ -101,4 +101,4 @@ def test_multi_segment_result(mock_get_model, synthetic_wav):
     assert len(result.segments) == 2
     assert result.segments[0].start_time == 0.0
     assert result.segments[0].end_time == 1.5
-    assert result.segments[1].text == "Segment two."
+    assert "Segment two." in result.segments[1].text

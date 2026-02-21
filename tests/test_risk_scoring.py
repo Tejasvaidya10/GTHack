@@ -40,18 +40,18 @@ def test_empty_data_low_risk():
 
 
 def test_single_medication_score():
-    """One medication should add exactly 10 points."""
+    """One medication should add 8 points (first med)."""
     patient = _make_patient(medications=[Medication(name="Lisinopril", dose="10mg")])
     result = calculate_risk_score(patient, _make_clinician())
 
-    assert result.risk_score == 10
+    assert result.risk_score == 8
     assert len(result.risk_factors) == 1
-    assert result.risk_factors[0].points == 10
+    assert result.risk_factors[0].points == 8
     assert "Lisinopril" in result.risk_factors[0].factor
 
 
 def test_multiple_medications_cumulative():
-    """Multiple medications should accumulate points (10 each)."""
+    """Multiple medications should accumulate points (8 + 5 + 5 = 18)."""
     meds = [
         Medication(name="Lisinopril", dose="10mg"),
         Medication(name="Metformin", dose="500mg"),
@@ -60,7 +60,7 @@ def test_multiple_medications_cumulative():
     patient = _make_patient(medications=meds)
     result = calculate_risk_score(patient, _make_clinician())
 
-    assert result.risk_score >= 30
+    assert result.risk_score == 18
     med_factors = [f for f in result.risk_factors if "medication" in f.factor.lower()]
     assert len(med_factors) == 3
 
@@ -108,16 +108,15 @@ def test_score_caps_at_100():
     assert result.risk_score == 100
 
 
-@pytest.mark.parametrize("med_count,expected_level", [
-    (0, "low"),     # 0 points
-    (3, "low"),     # 30 points = boundary of low
-    (4, "medium"),  # 40 points
-    (7, "high"),    # 70 points
+@pytest.mark.parametrize("summary,expected_level", [
+    ("", "low"),                                                           # 0 points
+    ("Patient has dizziness.", "low"),                                     # 8 points
+    ("Patient has chest pain and difficulty breathing. They stopped taking their medication.", "medium"),  # 30 symptom + 10 non-adherence = 40
+    ("Patient has chest pain, suicidal thoughts, stopped taking meds, too expensive, forgot doses.", "high"),  # symptoms + adherence
 ])
-def test_risk_level_boundaries(med_count, expected_level):
+def test_risk_level_boundaries(summary, expected_level):
     """Risk level boundaries: 0-30 low, 31-60 medium, 61+ high."""
-    meds = [Medication(name=f"Drug{i}") for i in range(med_count)]
-    patient = _make_patient(medications=meds)
+    patient = _make_patient(visit_summary=summary)
     result = calculate_risk_score(patient, _make_clinician())
 
     assert result.risk_level == expected_level

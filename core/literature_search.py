@@ -1,4 +1,4 @@
-"""Semantic Scholar literature retrieval with feedback-boosted keywords."""
+"""Literature retrieval from Semantic Scholar + PubMed with feedback-boosted keywords."""
 
 import logging
 import time
@@ -7,6 +7,7 @@ import requests
 
 from models.schemas import LiteratureResult, BoostedKeyword
 from models.database import get_boosted_keywords
+from core.pubmed_search import search_pubmed
 from app.config import SEMANTIC_SCHOLAR_API
 
 logger = logging.getLogger(__name__)
@@ -88,9 +89,12 @@ def search_literature(
     drugs: list[str],
     keywords: list[str] = [],
 ) -> list[LiteratureResult]:
-    """Search Semantic Scholar for relevant published research.
+    """Search PubMed (primary) + Semantic Scholar for relevant published research.
 
-    Incorporates boosted keywords from feedback history to improve results.
+    PubMed is searched first as the gold standard for medical literature.
+    Semantic Scholar supplements with broader coverage and citation metrics.
+    Results are merged, deduplicated, and sorted with PubMed results
+    prioritized over Semantic Scholar at equal citation counts.
 
     Args:
         conditions: List of medical conditions from the visit.
@@ -98,8 +102,19 @@ def search_literature(
         keywords: Additional search keywords.
 
     Returns:
-        List of LiteratureResult objects sorted by influential citations.
+        List of LiteratureResult objects sorted by citation count.
     """
+    all_results = []
+
+    # --- Source 1: PubMed (gold standard for medical literature) ---
+    try:
+        pubmed_results = search_pubmed(conditions, drugs, keywords, max_results=15)
+        all_results.extend(pubmed_results)
+        logger.info(f"PubMed returned {len(pubmed_results)} results")
+    except Exception as e:
+        logger.warning(f"PubMed search failed: {e}")
+
+    # --- Source 2: Semantic Scholar (broader + citation metrics) ---
     # Get boosted keywords from feedback history
     try:
         boosted = get_boosted_keywords(min_score=0.5)
@@ -108,6 +123,10 @@ def search_literature(
 
     query = _build_search_query(conditions, drugs, keywords, boosted)
     if not query:
+        # If no query but we have PubMed results, return those
+        if all_results:
+            all_results.sort(key=lambda r: (r.citation_count, r.year or 0), reverse=True)
+            return all_results
         return []
 
     params = {
@@ -129,16 +148,18 @@ def search_literature(
                     time.sleep(1)
                     continue
                 else:
-                    logger.warning("Semantic Scholar rate limited on retry, returning empty")
-                    return []
+                    logger.warning("Semantic Scholar rate limited on retry, skipping")
+                    data = {"data": []}
+                    break
             response.raise_for_status()
             data = response.json()
             break
         except requests.RequestException as e:
             logger.warning(f"Semantic Scholar API error: {e}")
-            return []
+            data = {"data": []}
+            break
     else:
-        return []
+        data = {"data": []}
 
     papers = data.get("data", [])
     results = []
@@ -185,10 +206,27 @@ def search_literature(
             relevance_explanation=relevance,
         ))
 
-    # Sort by influential citation count (desc), then year (desc)
-    results.sort(
-        key=lambda r: (r.influential_citation_count, r.year or 0),
-        reverse=True,
-    )
+    # Add Semantic Scholar results with [Semantic Scholar] tag
+    for r in results:
+        r.relevance_explanation = f"[Semantic Scholar] {r.relevance_explanation}"
+    all_results.extend(results)
+    logger.info(f"Semantic Scholar returned {len(results)} results")
 
-    return results
+    # Deduplicate by title similarity — PubMed results come first in all_results
+    # so they win ties (first occurrence kept)
+    seen_titles = set()
+    deduped = []
+    for r in all_results:
+        title_key = r.title.lower().strip().rstrip(".")
+        if title_key not in seen_titles:
+            seen_titles.add(title_key)
+            deduped.append(r)
+
+    # Sort: citation count (desc), PubMed first at equal counts, then year (desc)
+    def _sort_key(r):
+        is_pubmed = 1 if r.relevance_explanation.startswith("[PubMed]") else 0
+        return (r.citation_count, is_pubmed, r.year or 0)
+
+    deduped.sort(key=_sort_key, reverse=True)
+
+    return deduped[:15]  # Return top 15 across both sources

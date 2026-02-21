@@ -48,11 +48,22 @@ async def transcribe(file: UploadFile = File(...)):
         # Redact PHI — this runs BEFORE any storage
         redaction = redact_phi(transcription.text)
 
+        # Redact PHI from individual segments as well
+        redacted_segments = []
+        for seg in transcription.segments:
+            seg_redaction = redact_phi(seg.text)
+            redacted_segments.append({
+                "start_time": seg.start_time,
+                "end_time": seg.end_time,
+                "text": seg_redaction.redacted_text,
+            })
+
+        # HIPAA: Only return redacted transcript — never expose raw PHI via API
         return {
-            "transcript": transcription.text,
+            "transcript": redaction.redacted_text,
             "redacted_transcript": redaction.redacted_text,
             "redaction_log": [entry.model_dump() for entry in redaction.redaction_log],
-            "segments": [seg.model_dump() for seg in transcription.segments],
+            "segments": redacted_segments,
             "duration": transcription.duration_seconds,
             "language": transcription.language,
             "entity_count": redaction.entity_count,

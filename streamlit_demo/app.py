@@ -157,7 +157,7 @@ if page == "Upload & Process":
                     if ps.get("follow_up_plan"):
                         st.subheader("Follow-Up Plan")
                         for fu in ps["follow_up_plan"]:
-                            st.checkbox(f"{fu['action']} ({fu['date_or_timeline']})", key=f"fu_{fu['action']}")
+                            st.markdown(f"- [ ] **{fu['action']}** — {fu['date_or_timeline']}")
 
                     if ps.get("lifestyle_recommendations"):
                         st.subheader("Lifestyle Recommendations")
@@ -303,21 +303,20 @@ if page == "Upload & Process":
 
                 with tab5:
                     st.subheader("Export PDF")
-                    if st.button("Download After Visit Summary PDF"):
-                        try:
-                            r = requests.get(
-                                f"{API_BASE}/api/export/{analysis['visit_id']}/pdf",
-                                timeout=30,
-                            )
-                            r.raise_for_status()
-                            st.download_button(
-                                "📥 Download PDF",
-                                data=r.content,
-                                file_name=f"MedSift_Visit_{analysis['visit_id']}_Summary.pdf",
-                                mime="application/pdf",
-                            )
-                        except Exception as e:
-                            st.error(f"PDF export failed: {e}")
+                    try:
+                        r = requests.get(
+                            f"{API_BASE}/api/export/{analysis['visit_id']}/pdf",
+                            timeout=30,
+                        )
+                        r.raise_for_status()
+                        st.download_button(
+                            "📥 Download After Visit Summary PDF",
+                            data=r.content,
+                            file_name=f"MedSift_Visit_{analysis['visit_id']}_Summary.pdf",
+                            mime="application/pdf",
+                        )
+                    except Exception as e:
+                        st.error(f"PDF export failed: {e}")
 
 
 # ========================================
@@ -377,19 +376,18 @@ elif page == "Visit History":
                     st.markdown(f"**Risk:** :{color}[{ra.get('risk_score', 0)}/100 ({level.upper()})]")
 
                 # Export button
-                if st.button(f"📥 Export PDF", key=f"pdf_{visit['id']}"):
-                    try:
-                        r = requests.get(f"{API_BASE}/api/export/{visit['id']}/pdf", timeout=30)
-                        r.raise_for_status()
-                        st.download_button(
-                            "Download",
-                            data=r.content,
-                            file_name=f"MedSift_Visit_{visit['id']}.pdf",
-                            mime="application/pdf",
-                            key=f"dl_{visit['id']}",
-                        )
-                    except Exception as e:
-                        st.error(f"PDF export failed: {e}")
+                try:
+                    r = requests.get(f"{API_BASE}/api/export/{visit['id']}/pdf", timeout=30)
+                    r.raise_for_status()
+                    st.download_button(
+                        "📥 Export PDF",
+                        data=r.content,
+                        file_name=f"MedSift_Visit_{visit['id']}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_{visit['id']}",
+                    )
+                except Exception as e:
+                    st.error(f"PDF export failed: {e}")
     else:
         st.info("No visits yet. Upload and process an audio recording to get started.")
 

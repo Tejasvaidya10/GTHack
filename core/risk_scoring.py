@@ -17,12 +17,10 @@ logger = logging.getLogger(__name__)
 
 # Severe symptom keywords and their point values
 SEVERE_SYMPTOMS = {
+    # Emergency / life-threatening
     "chest pain": 15,
     "shortness of breath": 15,
     "difficulty breathing": 15,
-    "severe pain": 15,
-    "confusion": 15,
-    "fainting": 15,
     "loss of consciousness": 15,
     "seizure": 15,
     "stroke": 15,
@@ -30,13 +28,58 @@ SEVERE_SYMPTOMS = {
     "self-harm": 15,
     "bleeding heavily": 15,
     "vomiting blood": 15,
+    "anaphylaxis": 15,
+    "allergic reaction": 12,
+    # Pain descriptors
+    "severe pain": 15,
+    "intense pain": 15,
+    "extreme pain": 15,
+    "sharp pain": 12,
+    "constant pain": 10,
+    "pain radiating": 10,
+    "can't move": 12,
+    "cannot move": 12,
+    "unable to move": 12,
+    "immobile": 10,
+    # Injury / trauma
+    "dislocation": 15,
+    "dislocated": 15,
+    "fracture": 15,
+    "broken bone": 15,
+    "concussion": 15,
+    "head injury": 15,
+    "spinal injury": 15,
+    "ligament tear": 12,
+    "torn ligament": 12,
+    "torn meniscus": 12,
+    "acl tear": 12,
+    "rotator cuff": 10,
+    "sprain": 8,
+    "strain": 6,
+    "contusion": 6,
+    "laceration": 10,
+    "wound": 8,
+    "fell on": 4,
+    "tackled": 4,
+    "collision": 4,
+    "accident": 4,
+    "trauma": 6,
+    "injury": 4,
+    # GI / internal
     "blood in stool": 12,
     "severe headache": 12,
     "high fever": 10,
+    "infection": 10,
+    "abscess": 10,
+    # General
     "dizziness": 8,
     "numbness": 8,
     "weakness": 8,
     "swelling": 8,
+    "deformity": 12,
+    "bruising": 6,
+    "limited range of motion": 10,
+    "instability": 8,
 }
 
 # Non-adherence cue keywords
@@ -54,7 +97,15 @@ RED_FLAG_PATTERNS = {
         "chest pain", "difficulty breathing", "shortness of breath",
         "stroke symptoms", "severe allergic reaction", "anaphylaxis",
         "suicidal ideation", "suicidal thoughts", "want to hurt",
-        "loss of consciousness", "seizure",
+        "loss of consciousness", "seizure", "head injury", "concussion",
+        "spinal injury", "open fracture", "compound fracture",
+    ],
+    "injury_trauma": [
+        "dislocation", "dislocated", "fracture", "broken bone",
+        "ligament tear", "torn ligament", "torn meniscus", "acl tear",
+        "concussion", "head injury", "spinal", "nerve damage",
+        "surgery needed", "surgical", "reduction", "immobilization",
+        "cannot move", "can't move", "unable to move",
     ],
     "drug_interaction": [
         "drug interaction", "interact with", "contraindicated",
@@ -153,9 +204,9 @@ def calculate_risk_score(
 
     # --- Rule-based scoring ---
 
-    # 1. New medications: +10 per medication
-    for med in patient_summary.medications:
-        points = 10
+    # 1. New medications: +8 for first, +5 each additional (cap at 3)
+    for i, med in enumerate(patient_summary.medications[:3]):
+        points = 8 if i == 0 else 5
         total_score += points
         risk_factors.append(RiskFactor(
             factor=f"New medication started: {med.name} {med.dose}".strip(),
@@ -174,14 +225,20 @@ def calculate_risk_score(
             evidence="; ".join(clinician_note.soap_note.assessment.evidence[:2]) if clinician_note.soap_note.assessment.evidence else "",
         ))
 
-    # 3. Severe symptoms: +points per symptom found
+    # 3. Severe symptoms: +points per symptom found (capped at 30 total)
+    symptom_score = 0
+    symptom_cap = 30
     for symptom, points in SEVERE_SYMPTOMS.items():
+        if symptom_score >= symptom_cap:
+            break
         matches = _scan_text_for_keywords(all_text, [symptom])
         if matches:
-            total_score += points
+            actual_points = min(points, symptom_cap - symptom_score)
+            symptom_score += actual_points
+            total_score += actual_points
             risk_factors.append(RiskFactor(
                 factor=f"Severe symptom mentioned: {symptom}",
-                points=points,
+                points=actual_points,
                 evidence=matches[0][1],
             ))
 
@@ -208,7 +265,35 @@ def calculate_risk_score(
             ))
             break  # Only count once
 
-    # 6. Abnormal vitals mentioned: +10
+    # 6. Tests ordered (imaging/labs suggest clinical concern): +8 per test
+    for test in patient_summary.tests_ordered:
+        points = 8
+        test_lower = test.test_name.lower()
+        # Higher points for advanced imaging
+        if any(t in test_lower for t in ["mri", "ct scan", "x-ray", "xray", "ultrasound", "ecg", "ekg"]):
+            points = 10
+        total_score += points
+        risk_factors.append(RiskFactor(
+            factor=f"Test ordered: {test.test_name}",
+            points=points,
+            evidence=test.evidence,
+        ))
+
+    # 7. Referrals/procedures (suggests complexity): +10 per referral
+    referrals = clinician_note.soap_note.plan.referrals
+    for ref in referrals:
+        ref_lower = ref.lower()
+        points = 10
+        if any(t in ref_lower for t in ["surgery", "surgical", "emergency", "er", "orthopedic", "specialist"]):
+            points = 15
+        total_score += points
+        risk_factors.append(RiskFactor(
+            factor=f"Referral/procedure: {ref}",
+            points=points,
+            evidence="; ".join(clinician_note.soap_note.plan.evidence[:2]) if clinician_note.soap_note.plan.evidence else "",
+        ))
+
+    # 8. Abnormal vitals: +10
     vitals_text = clinician_note.soap_note.objective.vitals.lower()
     abnormal_terms = ["elevated", "high", "low", "abnormal", "irregular", "tachycardia", "bradycardia", "hypertension", "hypotension"]
     for term in abnormal_terms:
@@ -221,7 +306,7 @@ def calculate_risk_score(
             ))
             break
 
-    # 7. Mental health concerns: +8
+    # 9. Mental health concerns: +8
     mental_matches = _scan_text_for_keywords(all_text, RED_FLAG_PATTERNS["mental_health"])
     if mental_matches:
         total_score += 8
@@ -238,10 +323,11 @@ def calculate_risk_score(
     for category, patterns in RED_FLAG_PATTERNS.items():
         matches = _scan_text_for_keywords(all_text, patterns)
         for keyword, evidence in matches:
-            severity = "high" if category in ("emergency_symptom", "drug_interaction") else "medium"
+            severity = "high" if category in ("emergency_symptom", "drug_interaction", "injury_trauma") else "medium"
 
             recommended_actions = {
                 "emergency_symptom": "Seek immediate medical attention or call 911",
+                "injury_trauma": "Orthopedic evaluation, imaging, and appropriate intervention",
                 "drug_interaction": "Review medication list with pharmacist or provider",
                 "adherence_barrier": "Discuss patient assistance programs or generic alternatives",
                 "worsening_condition": "Schedule urgent follow-up appointment",

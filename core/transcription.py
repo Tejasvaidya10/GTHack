@@ -75,9 +75,84 @@ def transcribe_audio(
     # Calculate duration from last segment end time
     duration = segments[-1].end_time if segments else 0.0
 
+    # Add speaker labels
+    diarized_segments = _diarize_segments(segments)
+    diarized_text = _format_diarized_transcript(diarized_segments)
+
     return TranscriptionResult(
-        text=result["text"].strip(),
-        segments=segments,
+        text=diarized_text,
+        segments=diarized_segments,
         language=result.get("language", "en"),
         duration_seconds=round(duration, 2),
     )
+
+
+# Pause threshold (seconds) — a gap this long likely means speaker changed
+SPEAKER_CHANGE_PAUSE = 1.5
+
+# Speakers for a 2-person medical visit
+SPEAKERS = ["Doctor", "Patient"]
+
+
+def _diarize_segments(segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
+    """Assign speaker labels to segments based on pause detection.
+
+    Uses a simple heuristic: a pause longer than SPEAKER_CHANGE_PAUSE seconds
+    between segments indicates a speaker change. Assumes 2 speakers alternating
+    (Doctor and Patient), with Doctor speaking first.
+    """
+    if not segments:
+        return segments
+
+    current_speaker_idx = 0  # Start with Doctor
+    labeled = []
+
+    for i, seg in enumerate(segments):
+        if i > 0:
+            pause = seg.start_time - segments[i - 1].end_time
+            if pause >= SPEAKER_CHANGE_PAUSE:
+                current_speaker_idx = 1 - current_speaker_idx  # Toggle speaker
+
+        speaker = SPEAKERS[current_speaker_idx]
+        labeled.append(TranscriptSegment(
+            start_time=seg.start_time,
+            end_time=seg.end_time,
+            text=f"{speaker}: {seg.text}",
+        ))
+
+    return labeled
+
+
+def _format_diarized_transcript(segments: list[TranscriptSegment]) -> str:
+    """Format diarized segments into a readable transcript.
+
+    Merges consecutive segments from the same speaker into single blocks.
+    """
+    if not segments:
+        return ""
+
+    blocks = []
+    current_speaker = None
+    current_text_parts = []
+
+    for seg in segments:
+        # Extract speaker from "Speaker: text" format
+        if ": " in seg.text:
+            speaker, text = seg.text.split(": ", 1)
+        else:
+            speaker = "Unknown"
+            text = seg.text
+
+        if speaker == current_speaker:
+            current_text_parts.append(text)
+        else:
+            if current_speaker is not None:
+                blocks.append(f"{current_speaker}: {' '.join(current_text_parts)}")
+            current_speaker = speaker
+            current_text_parts = [text]
+
+    # Don't forget the last block
+    if current_speaker is not None:
+        blocks.append(f"{current_speaker}: {' '.join(current_text_parts)}")
+
+    return "\n\n".join(blocks)

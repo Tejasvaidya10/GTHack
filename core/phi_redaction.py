@@ -66,6 +66,10 @@ def _get_anonymizer() -> AnonymizerEngine:
 
 
 # Entity types to detect
+# NOTE: DATE_TIME is intentionally excluded — Presidio redacts all dates/times
+# including clinically relevant ones (e.g. "this happened yesterday", "pain started
+# 2 hours ago"). In medical conversations, when symptoms/injuries started is critical
+# clinical information, not PHI. True PHI dates (DOB) are rare in doctor-patient audio.
 ENTITY_TYPES = [
     "PERSON",
     "PHONE_NUMBER",
@@ -74,7 +78,6 @@ ENTITY_TYPES = [
     "US_SSN",
     "MEDICAL_RECORD_NUMBER",
     "INSURANCE_ID",
-    "DATE_TIME",
     "US_DRIVER_LICENSE",
     "CREDIT_CARD",
 ]

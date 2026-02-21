@@ -11,6 +11,7 @@ from core.extraction import extract_patient_summary, extract_clinician_note
 from core.risk_scoring import calculate_risk_score
 from core.clinical_trials import find_relevant_trials
 from core.literature_search import search_literature
+from core.phi_redaction import redact_phi
 from models.schemas import VisitRecord
 from models.database import save_visit
 
@@ -40,13 +41,18 @@ async def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=400, detail="Transcript cannot be empty")
 
     try:
+        # HIPAA: Re-run PHI redaction to ensure no raw PHI is processed or stored,
+        # even if the caller sends unredacted text
+        redaction = redact_phi(req.transcript)
+        safe_transcript = redaction.redacted_text
+
         # Extract patient-facing summary
         logger.info("Extracting patient summary...")
-        patient_summary = extract_patient_summary(req.transcript)
+        patient_summary = extract_patient_summary(safe_transcript)
 
         # Extract clinician SOAP note
         logger.info("Extracting clinician note...")
-        clinician_note = extract_clinician_note(req.transcript)
+        clinician_note = extract_clinician_note(safe_transcript)
 
         # Calculate risk score
         logger.info("Calculating risk score...")
@@ -89,7 +95,7 @@ async def analyze(req: AnalyzeRequest):
             visit_date=visit_date,
             visit_type=req.visit_type,
             tags=req.tags,
-            raw_transcript=req.transcript,
+            raw_transcript=safe_transcript,  # HIPAA: only store redacted text
             patient_summary=patient_summary,
             clinician_note=clinician_note,
             risk_assessment=risk_assessment,
