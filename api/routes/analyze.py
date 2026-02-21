@@ -32,7 +32,7 @@ class AnalyzeRequest(BaseModel):
 async def analyze(req: AnalyzeRequest):
     """Run full analysis pipeline on a transcript.
 
-    Extracts patient summary, clinician SOAP note, risk scoring,
+    Extracts patient summary, clinician SOAP note,
     and optionally searches clinical trials and literature.
     Saves everything to the database.
     """
@@ -53,12 +53,8 @@ async def analyze(req: AnalyzeRequest):
         logger.info("Extracting clinician note...")
         clinician_note = extract_clinician_note(safe_transcript)
 
-        # Calculate risk score
-        logger.info("Calculating risk score...")
-        risk_assessment = calculate_risk_score(patient_summary, clinician_note)
-
         # Extract conditions and drugs for trial/literature search
-        conditions = clinician_note.soap_note.assessment.diagnoses
+        conditions = clinician_note.soap_note.assessment.findings
         drugs = [med.name for med in patient_summary.medications]
 
         # Clinical trials search
@@ -97,7 +93,6 @@ async def analyze(req: AnalyzeRequest):
             raw_transcript=safe_transcript,  # HIPAA: only store redacted text
             patient_summary=patient_summary,
             clinician_note=clinician_note,
-            risk_assessment=risk_assessment,
             clinical_trials=clinical_trials,
             literature_results=literature_results,
         )
@@ -109,7 +104,6 @@ async def analyze(req: AnalyzeRequest):
             "visit_id": visit_id,
             "patient_summary": patient_summary.model_dump(),
             "clinician_note": clinician_note.model_dump(),
-            "risk_assessment": risk_assessment.model_dump(),
             "clinical_trials": [t.model_dump() for t in clinical_trials],
             "literature": [r.model_dump() for r in literature_results],
         }

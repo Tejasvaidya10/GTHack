@@ -42,28 +42,31 @@ VALID_PATIENT_JSON = json.dumps({
 VALID_CLINICIAN_JSON = json.dumps({
     "soap_note": {
         "subjective": {
-            "chief_complaint": "Routine checkup",
-            "history_of_present_illness": "Patient presents for annual exam.",
-            "review_of_systems": "No acute complaints.",
+            "findings": [
+                "Patient presents for annual exam.",
+                "No acute complaints.",
+                "Currently taking Metformin 500mg twice daily.",
+            ],
             "evidence": ["Patient said they are here for their annual checkup"],
         },
         "objective": {
-            "vitals": "BP 120/80, HR 72, Temp 98.6",
-            "physical_exam_findings": "Normal exam.",
+            "vital_signs": ["BP: 120/80", "HR: 72", "Temp: 98.6"],
+            "physical_exam": ["Normal exam, no abnormalities noted."],
+            "mental_state_exam": [],
+            "lab_results": [],
             "evidence": ["Vitals recorded during visit"],
         },
         "assessment": {
-            "diagnoses": ["Type 2 Diabetes"],
-            "differential_diagnoses": [],
-            "clinical_impression": "Stable diabetes on current regimen.",
+            "findings": ["Type 2 Diabetes - stable on current regimen."],
             "evidence": ["Discussion about diabetes management"],
         },
         "plan": {
-            "medications": ["Continue Metformin 500mg BID"],
-            "tests_ordered": ["HbA1c"],
-            "referrals": [],
-            "follow_up": "Return in 3 months",
-            "patient_education": "Discussed diet and exercise",
+            "findings": [
+                "Continue Metformin 500mg BID.",
+                "Order HbA1c lab.",
+                "Return in 3 months for follow-up.",
+                "Discussed diet and exercise.",
+            ],
             "evidence": ["Doctor ordered HbA1c and scheduled follow-up"],
         },
     },
@@ -143,7 +146,7 @@ def test_extract_clinician_note_mocked(mock_ollama, mock_prompt):
     result = extract_clinician_note("Doctor patient conversation here")
 
     assert isinstance(result, ClinicianNote)
-    assert result.soap_note.assessment.diagnoses == ["Type 2 Diabetes"]
+    assert "Type 2 Diabetes" in result.soap_note.assessment.findings[0]
     assert len(result.action_items) == 1
     assert result.action_items[0].action == "Order HbA1c lab"
     mock_ollama.assert_called_once()

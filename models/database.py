@@ -7,7 +7,7 @@ from datetime import datetime, date
 from typing import Optional
 
 from models.schemas import (
-    VisitRecord, PatientSummary, ClinicianNote, RiskAssessment,
+    VisitRecord, PatientSummary, ClinicianNote,
     ClinicalTrial, LiteratureResult, TranscriptSegment,
     FeedbackItem, FeedbackAnalytics, BoostedKeyword, AnalyticsSummary,
 )
@@ -39,7 +39,6 @@ def init_db() -> None:
                 raw_transcript TEXT DEFAULT '',
                 patient_summary_json TEXT,
                 clinician_note_json TEXT,
-                risk_assessment_json TEXT,
                 clinical_trials_json TEXT DEFAULT '[]',
                 literature_results_json TEXT DEFAULT '[]',
                 transcript_segments_json TEXT DEFAULT '[]'
@@ -120,9 +119,9 @@ def save_visit(visit: VisitRecord) -> int:
             """INSERT INTO visits (
                 visit_date, visit_type, tags, audio_duration_seconds,
                 raw_transcript, patient_summary_json, clinician_note_json,
-                risk_assessment_json, clinical_trials_json,
+                clinical_trials_json,
                 literature_results_json, transcript_segments_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 visit.visit_date.isoformat() if visit.visit_date else None,
                 visit.visit_type,
@@ -131,7 +130,6 @@ def save_visit(visit: VisitRecord) -> int:
                 visit.raw_transcript,
                 _serialize_optional(visit.patient_summary),
                 _serialize_optional(visit.clinician_note),
-                _serialize_optional(visit.risk_assessment),
                 _serialize_list(visit.clinical_trials),
                 _serialize_list(visit.literature_results),
                 _serialize_list(visit.transcript_segments),
@@ -171,8 +169,6 @@ def _row_to_visit(row: sqlite3.Row) -> VisitRecord:
             if row["patient_summary_json"] else None,
         clinician_note=ClinicianNote.model_validate_json(row["clinician_note_json"])
             if row["clinician_note_json"] else None,
-        risk_assessment=RiskAssessment.model_validate_json(row["risk_assessment_json"])
-            if row["risk_assessment_json"] else None,
         clinical_trials=[ClinicalTrial.model_validate(t) for t in json.loads(row["clinical_trials_json"] or "[]")],
         literature_results=[LiteratureResult.model_validate(r) for r in json.loads(row["literature_results_json"] or "[]")],
         transcript_segments=[TranscriptSegment.model_validate(s) for s in json.loads(row["transcript_segments_json"] or "[]")],
@@ -240,6 +236,34 @@ def delete_visit(visit_id: int) -> bool:
     conn = _get_connection()
     try:
         cursor = conn.execute("DELETE FROM visits WHERE id = ?", (visit_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def update_clinician_note(visit_id: int, clinician_note: ClinicianNote) -> bool:
+    """Update the clinician note (SOAP) for a visit. Returns True if updated."""
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            "UPDATE visits SET clinician_note_json = ? WHERE id = ?",
+            (json.dumps(clinician_note.model_dump()), visit_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def update_patient_summary(visit_id: int, patient_summary: PatientSummary) -> bool:
+    """Update the patient summary for a visit. Returns True if updated."""
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            "UPDATE visits SET patient_summary_json = ? WHERE id = ?",
+            (json.dumps(patient_summary.model_dump()), visit_id),
+        )
         conn.commit()
         return cursor.rowcount > 0
     finally:
@@ -436,24 +460,8 @@ def get_analytics() -> AnalyticsSummary:
     try:
         total = conn.execute("SELECT COUNT(*) as cnt FROM visits").fetchone()["cnt"]
 
-        # Risk distribution
-        risk_dist = {"low": 0, "medium": 0, "high": 0}
-        rows = conn.execute("SELECT risk_assessment_json FROM visits WHERE risk_assessment_json IS NOT NULL").fetchall()
         all_conditions = []
         all_medications = []
-        all_red_flags = {}
-        risk_scores = []
-        for row in rows:
-            try:
-                ra = json.loads(row["risk_assessment_json"])
-                level = ra.get("risk_level", "low")
-                risk_dist[level] = risk_dist.get(level, 0) + 1
-                risk_scores.append(ra.get("risk_score", 0))
-                for rf in ra.get("red_flags", []):
-                    cat = rf.get("category", "other")
-                    all_red_flags[cat] = all_red_flags.get(cat, 0) + 1
-            except (json.JSONDecodeError, TypeError):
-                pass
 
         # Extract conditions and medications from clinician notes
         cn_rows = conn.execute("SELECT clinician_note_json FROM visits WHERE clinician_note_json IS NOT NULL").fetchall()
@@ -462,9 +470,9 @@ def get_analytics() -> AnalyticsSummary:
                 cn = json.loads(row["clinician_note_json"])
                 soap = cn.get("soap_note", {})
                 assessment = soap.get("assessment", {})
-                all_conditions.extend(assessment.get("diagnoses", []))
+                all_conditions.extend(assessment.get("findings", []))
                 plan = soap.get("plan", {})
-                all_medications.extend(plan.get("medications", []))
+                all_medications.extend(plan.get("findings", []))
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -485,20 +493,15 @@ def get_analytics() -> AnalyticsSummary:
                FROM visits GROUP BY month ORDER BY month"""
         ).fetchall()
 
-        avg_risk = sum(risk_scores) / len(risk_scores) if risk_scores else 0.0
-
         # Get feedback rates
         fb = get_feedback_analytics()
         top_kw = [kw.keyword for kw in get_boosted_keywords(min_score=0.5)]
 
         return AnalyticsSummary(
             total_visits=total,
-            risk_distribution=risk_dist,
             most_common_conditions=[{"condition": c, "count": n} for c, n in top_conditions],
             most_common_medications=[{"medication": m, "count": n} for m, n in top_medications],
-            red_flag_frequency=all_red_flags,
             visits_over_time=[{"month": r["month"], "count": r["cnt"]} for r in time_rows],
-            average_risk_score=round(avg_risk, 1),
             extraction_accuracy_rate=fb.extraction_accuracy_rate,
             literature_relevance_rate=fb.literature_relevance_rate,
             top_boosted_keywords=top_kw[:10],

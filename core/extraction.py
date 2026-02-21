@@ -10,6 +10,7 @@ import requests
 from pydantic import BaseModel, ValidationError
 
 from models.schemas import PatientSummary, ClinicianNote
+from core.validation import validate_patient_summary, validate_clinician_note
 from app.config import (
     OLLAMA_URL, OLLAMA_MODEL, LLM_TEMPERATURE,
     LLM_MAX_TOKENS, LLM_TIMEOUT_SECONDS, LLM_MAX_RETRIES,
@@ -172,11 +173,13 @@ def extract_patient_summary(transcript: str) -> PatientSummary:
 
     Returns:
         PatientSummary with medications, tests, follow-ups, etc.
+        Each item is validated against the transcript and marked verified/unverified.
     """
     system_prompt = _load_prompt("extraction_patient.txt")
     prompt = f"Here is the patient-doctor conversation transcript:\n\n{transcript}"
 
-    return _extract_with_retry(prompt, system_prompt, PatientSummary)
+    summary = _extract_with_retry(prompt, system_prompt, PatientSummary)
+    return validate_patient_summary(summary, transcript)
 
 
 def extract_clinician_note(transcript: str) -> ClinicianNote:
@@ -187,8 +190,10 @@ def extract_clinician_note(transcript: str) -> ClinicianNote:
 
     Returns:
         ClinicianNote with SOAP note, problem list, and action items.
+        Action items are validated against the transcript.
     """
     system_prompt = _load_prompt("extraction_clinician.txt")
     prompt = f"Here is the patient-doctor conversation transcript:\n\n{transcript}"
 
-    return _extract_with_retry(prompt, system_prompt, ClinicianNote)
+    note = _extract_with_retry(prompt, system_prompt, ClinicianNote)
+    return validate_clinician_note(note, transcript)

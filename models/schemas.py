@@ -1,8 +1,8 @@
 """Pydantic models for all MedSift AI data structures."""
 
 from datetime import datetime, date
-from typing import Optional
-from pydantic import BaseModel, Field, model_validator
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class NullSafeModel(BaseModel):
@@ -72,6 +72,7 @@ class Medication(NullSafeModel):
     duration: str = ""
     instructions: str = ""
     evidence: str = ""
+    verified: bool = True
 
 
 class TestOrdered(NullSafeModel):
@@ -80,6 +81,7 @@ class TestOrdered(NullSafeModel):
     instructions: str = ""
     timeline: str = ""
     evidence: str = ""
+    verified: bool = True
 
 
 class FollowUpItem(NullSafeModel):
@@ -87,6 +89,7 @@ class FollowUpItem(NullSafeModel):
     action: str
     date_or_timeline: str = ""
     evidence: str = ""
+    verified: bool = True
 
 
 class LifestyleRecommendation(NullSafeModel):
@@ -94,12 +97,14 @@ class LifestyleRecommendation(NullSafeModel):
     recommendation: str
     details: str = ""
     evidence: str = ""
+    verified: bool = True
 
 
 class RedFlagForPatient(NullSafeModel):
     """A red flag warning for the patient."""
     warning: str
     evidence: str = ""
+    verified: bool = True
 
 
 class QAItem(NullSafeModel):
@@ -107,6 +112,7 @@ class QAItem(NullSafeModel):
     question: str
     answer: str
     evidence: str = ""
+    verified: bool = True
 
 
 class PatientSummary(NullSafeModel):
@@ -123,35 +129,29 @@ class PatientSummary(NullSafeModel):
 # --- Clinician-Facing SOAP Note ---
 
 class Subjective(NullSafeModel):
-    """SOAP Subjective section."""
-    chief_complaint: str = ""
-    history_of_present_illness: str = ""
-    review_of_systems: str = ""
+    """SOAP Subjective section — bullet-point findings."""
+    findings: list[str] = []
     evidence: list[str] = []
 
 
 class Objective(NullSafeModel):
-    """SOAP Objective section."""
-    vitals: str = ""
-    physical_exam_findings: str = ""
+    """SOAP Objective section — structured subsections."""
+    vital_signs: list[str] = []
+    physical_exam: list[str] = []
+    mental_state_exam: list[str] = []
+    lab_results: list[str] = []
     evidence: list[str] = []
 
 
 class Assessment(NullSafeModel):
-    """SOAP Assessment section."""
-    diagnoses: list[str] = []
-    differential_diagnoses: list[str] = []
-    clinical_impression: str = ""
+    """SOAP Assessment section — diagnoses and impressions as bullets."""
+    findings: list[str] = []
     evidence: list[str] = []
 
 
 class Plan(NullSafeModel):
-    """SOAP Plan section."""
-    medications: list[str] = []
-    tests_ordered: list[str] = []
-    referrals: list[str] = []
-    follow_up: str = ""
-    patient_education: str = ""
+    """SOAP Plan section — each action item as a bullet."""
+    findings: list[str] = []
     evidence: list[str] = []
 
 
@@ -168,6 +168,14 @@ class ActionItem(NullSafeModel):
     action: str
     priority: str = "medium"
     evidence: str = ""
+    verified: bool = True
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def coerce_priority(cls, v):
+        if isinstance(v, str) and v.lower().strip() in ("high", "medium", "low"):
+            return v.lower().strip()
+        return "medium"
 
 
 class ClinicianNote(NullSafeModel):

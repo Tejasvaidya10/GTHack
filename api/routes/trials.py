@@ -21,7 +21,7 @@ async def get_trials(visit_id: int):
     drugs = []
 
     if visit.clinician_note:
-        conditions = visit.clinician_note.soap_note.assessment.diagnoses
+        conditions = visit.clinician_note.soap_note.assessment.findings
     if visit.patient_summary:
         drugs = [med.name for med in visit.patient_summary.medications]
 

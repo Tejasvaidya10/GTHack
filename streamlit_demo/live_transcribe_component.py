@@ -367,12 +367,6 @@ def render_live_transcription_tab():
                         st.subheader("Visit Summary")
                         st.write(ps.get("visit_summary", ""))
 
-                    if analysis.get("risk_assessment"):
-                        ra = analysis["risk_assessment"]
-                        level = ra.get("risk_level", "low")
-                        color = {"low": "green", "medium": "orange", "high": "red"}.get(level, "gray")
-                        st.markdown(f"**Risk:** :{color}[{ra.get('risk_score', 0)}/100 ({level.upper()})]")
-
                     st.info("View full details in Visit History.")
 
                     # Clear transcript for next recording

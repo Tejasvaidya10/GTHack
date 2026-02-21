@@ -116,9 +116,13 @@ def generate_after_visit_summary(
         pdf.output(output_path)
         return output_path
 
-    # --- Visit Summary ---
-    pdf.section_title("Visit Summary")
-    pdf.add_paragraph(ps.visit_summary or "No summary available.")
+    # --- Patient Letter ---
+    pdf.section_title("Patient Letter")
+    summary_text = ps.visit_summary or "No summary available."
+    for paragraph in summary_text.split("\n\n"):
+        paragraph = paragraph.strip()
+        if paragraph:
+            pdf.add_paragraph(paragraph)
 
     # --- Medications ---
     if ps.medications:
@@ -186,21 +190,6 @@ def generate_after_visit_summary(
             pdf.safe_multi_cell(0, 5, f"A: {qa.answer}")
             pdf.ln(3)
 
-    # --- Risk Assessment ---
-    ra = visit_data.risk_assessment
-    if ra:
-        pdf.section_title("Risk Assessment")
-        color_map = {"low": (0, 150, 0), "medium": (200, 150, 0), "high": (200, 0, 0)}
-        color = color_map.get(ra.risk_level, (0, 0, 0))
-        pdf.set_text_color(*color)
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, f"Risk Level: {ra.risk_level.upper()} (Score: {ra.risk_score}/100)")
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(10)
-        pdf.set_font("Helvetica", "I", 8)
-        pdf.safe_multi_cell(0, 4, ra.disclaimer)
-        pdf.ln(5)
-
     # --- Optional SOAP Note ---
     if include_soap and visit_data.clinician_note:
         pdf.add_page()
@@ -209,49 +198,73 @@ def generate_after_visit_summary(
 
         pdf.section_title("SOAP Note (Clinician)")
 
+        # Subjective
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Subjective:")
+        pdf.cell(0, 6, "S:")
         pdf.ln(6)
         pdf.set_font("Helvetica", "", 9)
-        pdf.safe_multi_cell(0, 4, f"CC: {soap.subjective.chief_complaint}")
-        pdf.ln(2)
-        pdf.safe_multi_cell(0, 4, f"HPI: {soap.subjective.history_of_present_illness}")
-        pdf.ln(2)
-        pdf.safe_multi_cell(0, 4, f"ROS: {soap.subjective.review_of_systems}")
+        for finding in soap.subjective.findings:
+            pdf.safe_multi_cell(0, 4, f"- {finding}")
+            pdf.ln(1)
         pdf.ln(4)
 
+        # Objective
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Objective:")
+        pdf.cell(0, 6, "O:")
         pdf.ln(6)
         pdf.set_font("Helvetica", "", 9)
-        pdf.safe_multi_cell(0, 4, f"Vitals: {soap.objective.vitals}")
-        pdf.ln(2)
-        pdf.safe_multi_cell(0, 4, f"PE: {soap.objective.physical_exam_findings}")
+        if soap.objective.vital_signs:
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(0, 5, "Vital signs:")
+            pdf.ln(5)
+            pdf.set_font("Helvetica", "", 9)
+            for v in soap.objective.vital_signs:
+                pdf.safe_multi_cell(0, 4, f"- {v}")
+                pdf.ln(1)
+        if soap.objective.physical_exam:
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(0, 5, "Physical Examination:")
+            pdf.ln(5)
+            pdf.set_font("Helvetica", "", 9)
+            for pe in soap.objective.physical_exam:
+                pdf.safe_multi_cell(0, 4, f"- {pe}")
+                pdf.ln(1)
+        if soap.objective.mental_state_exam:
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(0, 5, "Mental state examination:")
+            pdf.ln(5)
+            pdf.set_font("Helvetica", "", 9)
+            for mse in soap.objective.mental_state_exam:
+                pdf.safe_multi_cell(0, 4, f"- {mse}")
+                pdf.ln(1)
+        if soap.objective.lab_results:
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(0, 5, "Lab results:")
+            pdf.ln(5)
+            pdf.set_font("Helvetica", "", 9)
+            for lab in soap.objective.lab_results:
+                pdf.safe_multi_cell(0, 4, f"- {lab}")
+                pdf.ln(1)
         pdf.ln(4)
 
+        # Assessment
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Assessment:")
+        pdf.cell(0, 6, "A:")
         pdf.ln(6)
         pdf.set_font("Helvetica", "", 9)
-        pdf.safe_multi_cell(0, 4, f"Diagnoses: {', '.join(soap.assessment.diagnoses)}")
-        pdf.ln(2)
-        pdf.safe_multi_cell(0, 4, f"Impression: {soap.assessment.clinical_impression}")
+        for finding in soap.assessment.findings:
+            pdf.safe_multi_cell(0, 4, f"- {finding}")
+            pdf.ln(1)
         pdf.ln(4)
 
+        # Plan
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Plan:")
+        pdf.cell(0, 6, "P:")
         pdf.ln(6)
         pdf.set_font("Helvetica", "", 9)
-        if soap.plan.medications:
-            pdf.safe_multi_cell(0, 4, f"Medications: {', '.join(soap.plan.medications)}")
-            pdf.ln(2)
-        if soap.plan.tests_ordered:
-            pdf.safe_multi_cell(0, 4, f"Tests: {', '.join(soap.plan.tests_ordered)}")
-            pdf.ln(2)
-        if soap.plan.referrals:
-            pdf.safe_multi_cell(0, 4, f"Referrals: {', '.join(soap.plan.referrals)}")
-            pdf.ln(2)
-        pdf.safe_multi_cell(0, 4, f"Follow-up: {soap.plan.follow_up}")
+        for finding in soap.plan.findings:
+            pdf.safe_multi_cell(0, 4, f"- {finding}")
+            pdf.ln(1)
         pdf.ln(4)
 
         # Problem list

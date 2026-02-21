@@ -23,12 +23,8 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", "data/medsift.db")
 CLINICAL_TRIALS_API = "https://clinicaltrials.gov/api/v2/studies"
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
 
-# Risk scoring thresholds
-RISK_LOW_MAX = 30
-RISK_MEDIUM_MAX = 60
-
 # LLM settings
 LLM_TEMPERATURE = 0.1
 LLM_MAX_TOKENS = 4096
-LLM_TIMEOUT_SECONDS = 120
+LLM_TIMEOUT_SECONDS = 300
 LLM_MAX_RETRIES = 2

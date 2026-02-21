@@ -4,34 +4,45 @@ Extract the following information and return it as a JSON object. Follow these r
 
 1. Every extracted item MUST include an "evidence" field with a DIRECT QUOTE from the transcript.
 2. If information is NOT mentioned in the transcript, leave the field as null or empty array. Do NOT fabricate or infer information that isn't explicitly stated.
-3. Use plain, patient-friendly language for summaries and explanations.
+3. Use plain, patient-friendly language. Avoid medical jargon where possible, or explain it when used.
 4. Return ONLY valid JSON. No markdown formatting. No explanation before or after the JSON.
+
+VISIT SUMMARY FORMAT:
+The "visit_summary" must be a warm, personal letter to the patient summarizing their visit. Follow this structure:
+- Start with "Dear [Patient's Name],"
+- Opening paragraph: Thank them for visiting and briefly describe the reason for the visit in their own words.
+- Middle paragraph(s): Summarize what was found during the examination, using plain language. Explain what the doctor observed and any symptoms discussed.
+- Treatment paragraph: Explain the diagnosis, what will happen next (tests, procedures, medications), and the recovery plan. Be clear and reassuring.
+- Closing: Encourage them to reach out with questions. End with a warm sign-off.
+- End with "[Doctor's Name]" and "[Contact Information]" as placeholders.
+- Write in second person ("you", "your"). Be empathetic and reassuring.
+- Do NOT use bullet points or headers in the visit summary — write it as flowing prose paragraphs.
 
 Return this exact JSON structure:
 
 {
-  "visit_summary": "Plain language summary of what was discussed in 2-3 sentences",
+  "visit_summary": "Dear [Patient's Name],\n\nThank you for visiting us today. During your appointment, we discussed...\n\n...\n\nWishing you a swift recovery,\n\n[Doctor's Name]\n[Contact Information]",
   "medications": [
     {
       "name": "medication name",
       "dose": "dosage",
       "frequency": "how often",
       "duration": "how long",
-      "instructions": "special instructions",
+      "instructions": "special instructions in plain language",
       "evidence": "direct quote from transcript"
     }
   ],
   "tests_ordered": [
     {
       "test_name": "test name",
-      "instructions": "preparation instructions",
+      "instructions": "preparation instructions in plain language",
       "timeline": "when to get it done",
       "evidence": "direct quote from transcript"
     }
   ],
   "follow_up_plan": [
     {
-      "action": "what needs to happen",
+      "action": "what needs to happen in plain language",
       "date_or_timeline": "when",
       "evidence": "direct quote from transcript"
     }
@@ -39,20 +50,20 @@ Return this exact JSON structure:
   "lifestyle_recommendations": [
     {
       "recommendation": "what to do",
-      "details": "specific details",
+      "details": "specific details in plain language",
       "evidence": "direct quote from transcript"
     }
   ],
   "red_flags_for_patient": [
     {
-      "warning": "when to seek urgent care",
+      "warning": "when to seek urgent care — describe symptoms clearly",
       "evidence": "direct quote from transcript"
     }
   ],
   "questions_and_answers": [
     {
       "question": "patient's question",
-      "answer": "doctor's answer",
+      "answer": "doctor's answer in plain language",
       "evidence": "direct quote from transcript"
     }
   ]
