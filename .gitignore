@@ -1,2 +1,29 @@
 # OS / editor
 .DS_Store
+
+# Build prompt (not for repo)
+MedSift_AI_Claude_Code_Prompt.md
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# Database
+data/medsift.db
+
+# Audio files
+*.mp3
+*.wav
+*.m4a
+*.webm
+
+# PDF output
+*.pdf
