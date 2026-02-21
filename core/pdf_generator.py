@@ -163,7 +163,7 @@ def generate_after_visit_summary(
         pdf.set_text_color(180, 0, 0)
         for rf in ps.red_flags_for_patient:
             pdf.set_font("Helvetica", "B", 10)
-            pdf.multi_cell(0, 5, f"  ! {rf.warning}")
+            pdf.multi_cell(0, 5, f"  {rf.warning}")
             pdf.ln(2)
         pdf.set_text_color(0, 0, 0)
         pdf.ln(3)

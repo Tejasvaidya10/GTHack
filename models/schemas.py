@@ -2,7 +2,31 @@
 
 from datetime import datetime, date
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+class NullSafeModel(BaseModel):
+    """Base model that coerces None values to defaults for str and list fields.
+
+    LLMs often return null for optional fields. This ensures Pydantic
+    validation doesn't fail on those cases.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_nulls(cls, data):
+        if isinstance(data, dict):
+            for field_name, field_info in cls.model_fields.items():
+                if field_name in data and data[field_name] is None:
+                    annotation = field_info.annotation
+                    ann_str = str(annotation)
+                    if annotation is str or annotation == str:
+                        data[field_name] = ""
+                    elif "list" in ann_str.lower():
+                        data[field_name] = []
+                    elif "dict" in ann_str.lower():
+                        data[field_name] = {}
+        return data
 
 
 # --- Transcription ---
@@ -40,7 +64,7 @@ class RedactionResult(BaseModel):
 
 # --- Patient-Facing Extraction ---
 
-class Medication(BaseModel):
+class Medication(NullSafeModel):
     """An extracted medication."""
     name: str
     dose: str = ""
@@ -50,7 +74,7 @@ class Medication(BaseModel):
     evidence: str = ""
 
 
-class TestOrdered(BaseModel):
+class TestOrdered(NullSafeModel):
     """An extracted test order."""
     test_name: str
     instructions: str = ""
@@ -58,34 +82,34 @@ class TestOrdered(BaseModel):
     evidence: str = ""
 
 
-class FollowUpItem(BaseModel):
+class FollowUpItem(NullSafeModel):
     """An extracted follow-up action."""
     action: str
     date_or_timeline: str = ""
     evidence: str = ""
 
 
-class LifestyleRecommendation(BaseModel):
+class LifestyleRecommendation(NullSafeModel):
     """An extracted lifestyle recommendation."""
     recommendation: str
     details: str = ""
     evidence: str = ""
 
 
-class RedFlagForPatient(BaseModel):
+class RedFlagForPatient(NullSafeModel):
     """A red flag warning for the patient."""
     warning: str
     evidence: str = ""
 
 
-class QAItem(BaseModel):
+class QAItem(NullSafeModel):
     """A question-answer pair from the visit."""
     question: str
     answer: str
     evidence: str = ""
 
 
-class PatientSummary(BaseModel):
+class PatientSummary(NullSafeModel):
     """Complete patient-facing extraction."""
     visit_summary: str = ""
     medications: list[Medication] = []
@@ -98,7 +122,7 @@ class PatientSummary(BaseModel):
 
 # --- Clinician-Facing SOAP Note ---
 
-class Subjective(BaseModel):
+class Subjective(NullSafeModel):
     """SOAP Subjective section."""
     chief_complaint: str = ""
     history_of_present_illness: str = ""
@@ -106,14 +130,14 @@ class Subjective(BaseModel):
     evidence: list[str] = []
 
 
-class Objective(BaseModel):
+class Objective(NullSafeModel):
     """SOAP Objective section."""
     vitals: str = ""
     physical_exam_findings: str = ""
     evidence: list[str] = []
 
 
-class Assessment(BaseModel):
+class Assessment(NullSafeModel):
     """SOAP Assessment section."""
     diagnoses: list[str] = []
     differential_diagnoses: list[str] = []
@@ -121,7 +145,7 @@ class Assessment(BaseModel):
     evidence: list[str] = []
 
 
-class Plan(BaseModel):
+class Plan(NullSafeModel):
     """SOAP Plan section."""
     medications: list[str] = []
     tests_ordered: list[str] = []
@@ -131,7 +155,7 @@ class Plan(BaseModel):
     evidence: list[str] = []
 
 
-class SOAPNote(BaseModel):
+class SOAPNote(NullSafeModel):
     """Complete SOAP note."""
     subjective: Subjective = Field(default_factory=Subjective)
     objective: Objective = Field(default_factory=Objective)
@@ -139,14 +163,14 @@ class SOAPNote(BaseModel):
     plan: Plan = Field(default_factory=Plan)
 
 
-class ActionItem(BaseModel):
+class ActionItem(NullSafeModel):
     """A clinician action item."""
     action: str
     priority: str = "medium"
     evidence: str = ""
 
 
-class ClinicianNote(BaseModel):
+class ClinicianNote(NullSafeModel):
     """Complete clinician-facing extraction."""
     soap_note: SOAPNote = Field(default_factory=SOAPNote)
     problem_list: list[str] = []
