@@ -21,6 +21,45 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
+def _normalize_string_lists(data: dict) -> dict:
+    """Recursively convert simple key-value dicts inside lists to strings.
+    
+    Ollama JSON mode sometimes returns {"BP": "140/90"} instead of "BP: 140/90".
+    This normalizes those before Pydantic validation, but preserves structured
+    dicts (like action_items) that should remain as objects.
+    """
+    # Known keys that indicate a dict should stay as a structured object
+    STRUCTURED_KEYS = {"action", "priority", "evidence", "name", "dose", "frequency",
+                       "recommendation", "warning", "question", "answer", "test_name"}
+    
+    if isinstance(data, dict):
+        return {k: _normalize_string_lists(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        result = []
+        for item in data:
+            if isinstance(item, dict):
+                # If it has known schema keys, keep it as a dict (structured object)
+                if any(k in STRUCTURED_KEYS for k in item.keys()):
+                    result.append(_normalize_string_lists(item))
+                else:
+                    # Simple key-value pair like {"BP": "140/90"} -> "BP: 140/90"
+                    parts = []
+                    for k, v in item.items():
+                        if isinstance(v, str) and v:
+                            parts.append(f"{k}: {v}")
+                        elif isinstance(v, str) and not v:
+                            continue
+                        else:
+                            parts.append(f"{k}: {v}")
+                    if parts:
+                        result.append("; ".join(parts))
+            elif isinstance(item, str) and item.strip():
+                result.append(item)
+        return result
+    return data
+
+
+
 def call_ollama(prompt: str, system_prompt: str) -> str:
     """Call Ollama's local API for text generation.
 
@@ -43,6 +82,7 @@ def call_ollama(prompt: str, system_prompt: str) -> str:
                 "prompt": prompt,
                 "system": system_prompt,
                 "stream": False,
+                "format": "json",
                 "options": {
                     "temperature": LLM_TEMPERATURE,
                     "num_predict": LLM_MAX_TOKENS,
@@ -128,6 +168,7 @@ def _extract_with_retry(
             logger.debug(f"LLM response (attempt {attempt + 1}): {raw_response[:200]}...")
 
             data = _extract_json_from_response(raw_response)
+            data = _normalize_string_lists(data)
             return model_class.model_validate(data)
 
         except json.JSONDecodeError as e:
