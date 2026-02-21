@@ -11,6 +11,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:latest")
 
 # Whisper transcription
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cuda" if __import__("torch").cuda.is_available() else "cpu")
 
 # Database
 DATABASE_PATH = os.getenv("DATABASE_PATH", "data/medsift.db")

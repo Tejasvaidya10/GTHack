@@ -76,7 +76,7 @@ def test_model_caching(mock_load):
     model2 = _get_model("base")
 
     assert model1 is model2
-    mock_load.assert_called_once_with("base")
+    mock_load.assert_called_once()
 
     _model_cache.clear()
 

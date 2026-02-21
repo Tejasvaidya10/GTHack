@@ -2,12 +2,24 @@
 
 import os
 import logging
+import shutil
 from typing import Optional
+
+# Ensure ffmpeg is on PATH (winget installs may not update the current process PATH)
+if not shutil.which("ffmpeg"):
+    _ffmpeg_dir = os.path.join(
+        os.path.expanduser("~"),
+        "AppData", "Local", "Microsoft", "WinGet", "Packages",
+        "Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "ffmpeg-8.0.1-full_build", "bin",
+    )
+    if os.path.isdir(_ffmpeg_dir):
+        os.environ["PATH"] = _ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
 
 import whisper
 
 from models.schemas import TranscriptionResult, TranscriptSegment
-from app.config import WHISPER_MODEL_SIZE
+from app.config import WHISPER_MODEL_SIZE, WHISPER_DEVICE
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +32,9 @@ SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".webm", ".flac", ".ogg"}
 def _get_model(model_size: str) -> whisper.Whisper:
     """Load and cache Whisper model."""
     if model_size not in _model_cache:
-        logger.info(f"Loading Whisper model: {model_size}")
-        _model_cache[model_size] = whisper.load_model(model_size)
-        logger.info(f"Whisper model '{model_size}' loaded successfully")
+        logger.info(f"Loading Whisper model: {model_size} on {WHISPER_DEVICE}")
+        _model_cache[model_size] = whisper.load_model(model_size, device=WHISPER_DEVICE)
+        logger.info(f"Whisper model '{model_size}' loaded successfully on {WHISPER_DEVICE}")
     return _model_cache[model_size]
 
 
