@@ -19,14 +19,14 @@ Return this JSON structure (replace descriptions with actual extracted data):
       "evidence": ["<direct quotes from transcript>"]
     },
     "objective": {
-      "vital_signs": ["<extract: BP, HR, Temp, RR, SpO2 - only values mentioned>"],
-      "physical_exam": ["<extract: exam findings with anatomical detail>"],
+      "vital_signs": ["<extract: ANY numbers mentioned for vitals — BP, HR, Temp, RR, SpO2, weight, BMI, blood sugar readings. Example: BP 142/88, Pulse 84, Weight 92 kg, BMI 31, Fasting glucose 160-180>"],
+      "physical_exam": ["<extract: exam findings AND patient-reported physical symptoms like numbness, tingling, pain. Include pertinent negatives like no chest pain, no shortness of breath>"],
       "mental_state_exam": ["<extract: MSE findings if assessed>"],
-      "lab_results": ["<extract: lab values and interpretation>"],
+      "lab_results": ["<extract: lab values, home monitoring results, and any labs ordered. Example: Fasting blood sugar 160-180 (home monitoring), A1C ordered, kidney function ordered>"],
       "evidence": ["<direct quotes from transcript>"]
     },
     "assessment": {
-      "findings": ["<extract: short medical condition names ONLY, e.g. chest pain, hypertension, type 2 diabetes — NOT full sentences>"],
+      "findings": ["<extract: DIAGNOSES and MEDICAL CONDITIONS only — e.g. type 2 diabetes, hypertension, obesity, shoulder dislocation. Do NOT list symptoms like tired, thirsty, pain. Convert symptoms to their medical diagnosis. Example: tired + thirsty + frequent urination + high blood sugar = type 2 diabetes>"],
       "evidence": ["<direct quotes from transcript>"]
     },
     "plan": {
@@ -34,7 +34,7 @@ Return this JSON structure (replace descriptions with actual extracted data):
       "evidence": ["<direct quotes from transcript>"]
     }
   },
-  "problem_list": ["<extract: each active problem>"],
+  "problem_list": ["<extract: each active MEDICAL DIAGNOSIS — e.g. type 2 diabetes mellitus, essential hypertension, obesity. NOT symptoms. Infer the diagnosis from symptoms, exam, and medications discussed>"],
   "action_items": [
     {
       "action": "<specific action needed>",
