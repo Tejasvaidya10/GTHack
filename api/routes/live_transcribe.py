@@ -42,7 +42,7 @@ async def websocket_transcribe(websocket: WebSocket, session_id: str):
         Client -> Server: binary frames (WebM/Opus audio chunks)
         Client -> Server: text frame {"type": "stop"} to end session
         Server -> Client: {"type": "session_ready"}
-        Server -> Client: {"type": "partial", "chunk_index", "text", "speaker", "entity_count"}
+        Server -> Client: {"type": "partial", "chunk_index", "text", "entity_count"}
         Server -> Client: {"type": "final", "full_transcript", "duration_seconds"}
         Server -> Client: {"type": "error", "message"}
     """
@@ -68,7 +68,6 @@ async def websocket_transcribe(websocket: WebSocket, session_id: str):
                         "type": "partial",
                         "chunk_index": result.chunk_index,
                         "text": result.text,
-                        "speaker": result.speaker,
                         "entity_count": result.entity_count,
                     })
                 except Exception as e:

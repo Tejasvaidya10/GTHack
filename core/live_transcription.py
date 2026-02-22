@@ -1,7 +1,7 @@
 """Live transcription with chunked Whisper processing.
 
 Buffers audio chunks from the browser, transcribes each with Whisper,
-applies PHI redaction, and maintains speaker diarization state across chunks.
+applies PHI redaction, and accumulates results across chunks.
 """
 
 import asyncio
@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from core.transcription import transcribe_audio, SPEAKERS, SPEAKER_CHANGE_PAUSE
+from core.transcription import transcribe_audio
 from core.phi_redaction import redact_phi
 from models.schemas import TranscriptSegment
 
@@ -22,19 +22,10 @@ LIVE_TEMP_DIR = os.path.join(tempfile.gettempdir(), "medsift_live")
 
 
 @dataclass
-class DiarizationState:
-    """Tracks speaker state across audio chunks."""
-    current_speaker_idx: int = 0
-    last_segment_end_time: float = 0.0
-    cumulative_offset: float = 0.0
-
-
-@dataclass
 class ChunkResult:
     """Result from processing a single audio chunk."""
     chunk_index: int
     text: str
-    speaker: str
     segments: list[TranscriptSegment]
     entity_count: dict[str, int]
 
@@ -43,10 +34,10 @@ class ChunkResult:
 class SessionState:
     """State for a live transcription session."""
     session_id: str
-    diarization: DiarizationState = field(default_factory=DiarizationState)
     full_segments: list[TranscriptSegment] = field(default_factory=list)
     full_text_blocks: list[str] = field(default_factory=list)
     chunk_index: int = 0
+    cumulative_offset: float = 0.0
     total_duration: float = 0.0
     last_active: float = field(default_factory=time.monotonic)
 
@@ -96,45 +87,6 @@ def _cleanup_expired_sessions() -> None:
         cleanup_session(sid)
 
 
-def _diarize_chunk_stateful(
-    segments: list[TranscriptSegment],
-    state: DiarizationState,
-) -> list[TranscriptSegment]:
-    """Apply speaker diarization to chunk segments using persistent state.
-
-    Uses the same pause-based heuristic as the batch diarizer but carries
-    speaker state across chunk boundaries.
-    """
-    if not segments:
-        return segments
-
-    labeled = []
-    for i, seg in enumerate(segments):
-        if i == 0:
-            # First segment of this chunk — check gap from previous chunk
-            if state.last_segment_end_time > 0:
-                gap = seg.start_time + state.cumulative_offset - state.last_segment_end_time
-                if gap >= SPEAKER_CHANGE_PAUSE:
-                    state.current_speaker_idx = 1 - state.current_speaker_idx
-        else:
-            pause = seg.start_time - segments[i - 1].end_time
-            if pause >= SPEAKER_CHANGE_PAUSE:
-                state.current_speaker_idx = 1 - state.current_speaker_idx
-
-        speaker = SPEAKERS[state.current_speaker_idx]
-        labeled.append(TranscriptSegment(
-            start_time=seg.start_time + state.cumulative_offset,
-            end_time=seg.end_time + state.cumulative_offset,
-            text=f"{speaker}: {seg.text}",
-        ))
-
-    # Update state for next chunk
-    last = labeled[-1]
-    state.last_segment_end_time = last.end_time
-
-    return labeled
-
-
 async def process_audio_chunk(
     session_id: str,
     raw_audio_bytes: bytes,
@@ -142,8 +94,8 @@ async def process_audio_chunk(
     """Process a single audio chunk from the browser.
 
     Writes the WebM bytes to a temp file, transcribes with Whisper in a
-    thread pool, applies diarization and PHI redaction, and accumulates
-    results in the session state.
+    thread pool, applies PHI redaction, and accumulates results in the
+    session state.
     """
     session = get_session(session_id)
     if session is None:
@@ -170,26 +122,19 @@ async def process_audio_chunk(
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-    # Strip unreliable per-chunk speaker labels (pause-based diarization is
-    # meaningless for 5-second chunks).  Adjust timestamps to cumulative offset.
-    clean_segments = []
+    # Adjust timestamps to cumulative offset
+    offset_segments = []
     for seg in transcription.segments:
-        # Remove "Doctor: " / "Patient: " prefix added by fallback diarizer
-        text = seg.text
-        if ": " in text:
-            prefix, rest = text.split(": ", 1)
-            if prefix in ("Doctor", "Patient", "Unknown"):
-                text = rest
-        clean_segments.append(TranscriptSegment(
-            start_time=seg.start_time + session.diarization.cumulative_offset,
-            end_time=seg.end_time + session.diarization.cumulative_offset,
-            text=text,
+        offset_segments.append(TranscriptSegment(
+            start_time=seg.start_time + session.cumulative_offset,
+            end_time=seg.end_time + session.cumulative_offset,
+            text=seg.text,
         ))
 
     # PHI redaction on each segment
     redacted_segments = []
     total_entity_count: dict[str, int] = {}
-    for seg in clean_segments:
+    for seg in offset_segments:
         result = redact_phi(seg.text)
         redacted_segments.append(TranscriptSegment(
             start_time=seg.start_time,
@@ -201,7 +146,7 @@ async def process_audio_chunk(
 
     # Update cumulative offset for next chunk
     if transcription.duration_seconds > 0:
-        session.diarization.cumulative_offset += transcription.duration_seconds
+        session.cumulative_offset += transcription.duration_seconds
 
     # Accumulate results
     session.full_segments.extend(redacted_segments)
@@ -213,65 +158,25 @@ async def process_audio_chunk(
     return ChunkResult(
         chunk_index=chunk_idx,
         text=chunk_text,
-        speaker="Live",
         segments=redacted_segments,
         entity_count=total_entity_count,
     )
 
 
 def finalize_session(session_id: str) -> Optional[dict]:
-    """Finalize a session and return the complete transcript.
-
-    Applies pause-based speaker diarization across the full accumulated
-    segments (which don't have speaker labels during live capture), then
-    merges consecutive same-speaker segments into blocks.
-    """
+    """Finalize a session and return the complete transcript."""
     session = get_session(session_id)
     if session is None:
         return None
 
     segments = session.full_segments
-
-    # Apply pause-based diarization across the full session timeline
-    current_speaker_idx = 0
-    diarized = []
-    for i, seg in enumerate(segments):
-        if i > 0:
-            pause = seg.start_time - segments[i - 1].end_time
-            if pause >= SPEAKER_CHANGE_PAUSE:
-                current_speaker_idx = 1 - current_speaker_idx
-        speaker = SPEAKERS[current_speaker_idx]
-        diarized.append(TranscriptSegment(
-            start_time=seg.start_time,
-            end_time=seg.end_time,
-            text=f"{speaker}: {seg.text}",
-        ))
-
-    # Merge consecutive segments from the same speaker
-    blocks = []
-    current_speaker = None
-    current_parts: list[str] = []
-
-    for seg in diarized:
-        speaker, text = seg.text.split(": ", 1)
-        if speaker == current_speaker:
-            current_parts.append(text)
-        else:
-            if current_speaker is not None:
-                blocks.append(f"{current_speaker}: {' '.join(current_parts)}")
-            current_speaker = speaker
-            current_parts = [text]
-
-    if current_speaker is not None:
-        blocks.append(f"{current_speaker}: {' '.join(current_parts)}")
-
-    full_transcript = "\n\n".join(blocks)
+    full_transcript = " ".join(seg.text for seg in segments)
 
     return {
         "full_transcript": full_transcript,
         "segments": [
             {"start_time": s.start_time, "end_time": s.end_time, "text": s.text}
-            for s in diarized
+            for s in segments
         ],
         "duration_seconds": round(session.total_duration, 2),
         "total_chunks": session.chunk_index,
