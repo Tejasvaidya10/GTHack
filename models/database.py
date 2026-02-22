@@ -1,6 +1,7 @@
 """SQLite database setup, models, and CRUD operations."""
 
 import json
+import re
 import os
 import sqlite3
 from datetime import datetime, date
@@ -454,6 +455,32 @@ def get_feedback_analytics() -> FeedbackAnalytics:
         conn.close()
 
 
+
+def _clean_condition(raw: str) -> list[str]:
+    """Clean verbose assessment findings into short condition names."""
+    if not raw or len(raw) < 3:
+        return []
+    # Skip junk entries entirely
+    skip_patterns = [
+        r'(?i)differential diagnosis', r'(?i)clinical impression', r'(?i)clinical reasoning',
+        r'(?i)none mentioned', r'(?i)not mentioned', r'(?i)no .* mentioned',
+        r'(?i)if mentioned', r'(?i)the patient', r'(?i)patient.s symptoms',
+    ]
+    for pat in skip_patterns:
+        if re.search(pat, raw):
+            return []
+    # Remove verbose prefixes
+    cleaned = re.sub(r'(?i)(patient (presents with|has|had|is|was|reports?|complains? of|experiencing)|symptoms? (suggestive|indicative) of|possible|probable|likely|suspected|consistent with|concerning for|history of|evidence of|assessment:?|findings?:?)', '', raw)
+    # Split on commas, semicolons, 'including', 'such as', 'and'
+    parts = re.split(r'[,;]\s*|\s+including\s+|\s+such as\s+|\s+and\s+', cleaned)
+    results = []
+    for p in parts:
+        p = re.sub(r'(?i)^(including|such as|like|with)\s+', '', p.strip().strip('.').strip(':').strip())
+        # Must be short, no colons (skip template text), and meaningful
+        if 3 < len(p) < 50 and ':' not in p:
+            results.append(p.lower())
+    return results
+
 def get_analytics() -> AnalyticsSummary:
     """Compute dashboard analytics from all visits."""
     conn = _get_connection()
@@ -470,7 +497,8 @@ def get_analytics() -> AnalyticsSummary:
                 cn = json.loads(row["clinician_note_json"])
                 soap = cn.get("soap_note", {})
                 assessment = soap.get("assessment", {})
-                all_conditions.extend(assessment.get("findings", []))
+                for f in assessment.get("findings", []):
+                    all_conditions.extend(_clean_condition(f))
                 plan = soap.get("plan", {})
                 all_medications.extend(plan.get("findings", []))
             except (json.JSONDecodeError, TypeError):
