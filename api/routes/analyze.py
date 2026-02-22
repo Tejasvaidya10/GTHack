@@ -1,6 +1,9 @@
 """POST /api/analyze — Full pipeline analysis of a transcript."""
 
+import hashlib
+import json
 import logging
+import os
 from datetime import date
 from typing import Optional
 
@@ -8,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from core.extraction import extract_patient_summary, extract_clinician_note
+from core.validation import compute_grounding_report
 from core.clinical_trials import find_relevant_trials
 from core.literature_search import search_literature
 from core.phi_redaction import redact_phi
@@ -15,6 +19,33 @@ from models.schemas import VisitRecord
 from models.database import save_visit
 
 logger = logging.getLogger(__name__)
+
+# ── Demo cache ────────────────────────────────────────────────────────────────
+# Cache LLM results by transcript hash so repeated demos are instant.
+# Cache dir lives next to this file's project root.
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".demo_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+def _cache_key(transcript: str) -> str:
+    """SHA-256 hash of the first 500 chars (enough to uniquely identify)."""
+    return hashlib.sha256(transcript[:500].encode()).hexdigest()[:16]
+
+
+def _get_cached(transcript: str) -> dict | None:
+    path = os.path.join(CACHE_DIR, f"{_cache_key(transcript)}.json")
+    if os.path.exists(path):
+        logger.info(f"Cache HIT — loading from {path}")
+        with open(path) as f:
+            return json.load(f)
+    return None
+
+
+def _save_cache(transcript: str, data: dict):
+    path = os.path.join(CACHE_DIR, f"{_cache_key(transcript)}.json")
+    with open(path, "w") as f:
+        json.dump(data, f)
+    logger.info(f"Cache SAVED — {path}")
 
 
 def _clean_conditions(raw_conditions):
@@ -72,6 +103,37 @@ async def analyze(req: AnalyzeRequest):
         redaction = redact_phi(req.transcript)
         safe_transcript = redaction.redacted_text
 
+        # Check demo cache first — skips LLM entirely if we've seen this transcript
+        cached = _get_cached(safe_transcript)
+        if cached:
+            # Still save a new visit record so it shows up in the dashboard
+            from models.schemas import PatientSummary, ClinicianNote, ClinicalTrial, LiteratureResult
+            visit_date_parsed = None
+            if req.visit_date:
+                try:
+                    visit_date_parsed = date.fromisoformat(req.visit_date)
+                except ValueError:
+                    visit_date_parsed = date.today()
+            else:
+                visit_date_parsed = date.today()
+
+            visit = VisitRecord(
+                visit_date=visit_date_parsed,
+                visit_type=req.visit_type,
+                tags=req.tags,
+                raw_transcript=safe_transcript,
+                patient_summary=PatientSummary(**cached["patient_summary"]),
+                clinician_note=ClinicianNote(**cached["clinician_note"]),
+                clinical_trials=[ClinicalTrial(**t) for t in cached.get("clinical_trials", [])],
+                literature_results=[LiteratureResult(**r) for r in cached.get("literature", [])],
+            )
+            visit_id = save_visit(visit)
+            logger.info(f"Cache hit — visit saved as ID: {visit_id}")
+            return {
+                "visit_id": visit_id,
+                **cached,
+            }
+
         # Extract patient-facing summary
         logger.info("Extracting patient summary...")
         patient_summary = extract_patient_summary(safe_transcript)
@@ -128,12 +190,24 @@ async def analyze(req: AnalyzeRequest):
         visit_id = save_visit(visit)
         logger.info(f"Visit saved with ID: {visit_id}")
 
-        return {
-            "visit_id": visit_id,
+        # Compute hallucination detection / grounding score
+        grounding_report = compute_grounding_report(patient_summary, clinician_note, safe_transcript)
+        logger.info(f"Grounding score: {grounding_report['overall_score']}/100 ({grounding_report['overall_flag']})")
+
+        result = {
             "patient_summary": patient_summary.model_dump(),
             "clinician_note": clinician_note.model_dump(),
             "clinical_trials": [t.model_dump() for t in clinical_trials],
             "literature": [r.model_dump() for r in literature_results],
+            "grounding": grounding_report,
+        }
+
+        # Save to demo cache for instant replay
+        _save_cache(safe_transcript, result)
+
+        return {
+            "visit_id": visit_id,
+            **result,
         }
 
     except ConnectionError as e:

@@ -1,5 +1,7 @@
 """POST /api/transcribe — Audio transcription with PHI redaction."""
 
+import hashlib
+import json
 import os
 import tempfile
 import logging
@@ -12,6 +14,14 @@ from api.dependencies import get_temp_dir
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# ── Demo cache ────────────────────────────────────────────────────────────────
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".demo_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+def _audio_hash(data: bytes) -> str:
+    return "tr_" + hashlib.sha256(data).hexdigest()[:16]
 
 
 @router.post("/api/transcribe")
@@ -39,6 +49,15 @@ async def transcribe(file: UploadFile = File(...)):
 
     try:
         contents = await file.read()
+
+        # Check demo cache by audio file hash
+        audio_key = _audio_hash(contents)
+        cache_path = os.path.join(CACHE_DIR, f"{audio_key}.json")
+        if os.path.exists(cache_path):
+            logger.info(f"Transcription cache HIT — {cache_path}")
+            with open(cache_path) as f:
+                return json.load(f)
+
         with open(tmp_path, "wb") as f:
             f.write(contents)
 
@@ -59,7 +78,7 @@ async def transcribe(file: UploadFile = File(...)):
             })
 
         # HIPAA: Only return redacted transcript — never expose raw PHI via API
-        return {
+        result = {
             "transcript": redaction.redacted_text,
             "redacted_transcript": redaction.redacted_text,
             "redaction_log": [entry.model_dump() for entry in redaction.redaction_log],
@@ -68,6 +87,13 @@ async def transcribe(file: UploadFile = File(...)):
             "language": transcription.language,
             "entity_count": redaction.entity_count,
         }
+
+        # Save to demo cache
+        with open(cache_path, "w") as f:
+            json.dump(result, f)
+        logger.info(f"Transcription cache SAVED — {cache_path}")
+
+        return result
 
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
