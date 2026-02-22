@@ -190,13 +190,13 @@ class ClinicianNote(NullSafeModel):
 class ClinicalTrial(BaseModel):
     """A matching clinical trial from ClinicalTrials.gov."""
     nct_id: str
-    title: str
+    brief_title: str
     status: str = ""
     conditions: list[str] = []
     interventions: list[str] = []
     location: str = ""
     url: str = ""
-    match_explanation: str = ""
+    why_it_matches: str = ""
 
 
 # --- Literature Search ---
@@ -271,9 +271,12 @@ class VisitRecord(BaseModel):
 class AnalyticsSummary(BaseModel):
     """Dashboard analytics aggregation."""
     total_visits: int = 0
-    most_common_conditions: list[dict] = []
-    most_common_medications: list[dict] = []
+    risk_distribution: dict = Field(default_factory=lambda: {"low": 0, "medium": 0, "high": 0})
+    top_conditions: list[dict] = []
+    top_medications: list[dict] = []
+    red_flag_frequency: dict[str, int] = {}
     visits_over_time: list[dict] = []
+    avg_risk_score: float = 0.0
     extraction_accuracy_rate: float = 0.0
     literature_relevance_rate: float = 0.0
-    top_boosted_keywords: list[str] = []
+    top_boosted_keywords: list[dict] = []

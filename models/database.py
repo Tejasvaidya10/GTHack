@@ -495,16 +495,23 @@ def get_analytics() -> AnalyticsSummary:
 
         # Get feedback rates
         fb = get_feedback_analytics()
-        top_kw = [kw.keyword for kw in get_boosted_keywords(min_score=0.5)]
+        boosted = get_boosted_keywords(min_score=0.0)
+        top_kw = [
+            {"keyword": kw.keyword, "positive_count": kw.positive_count, "negative_count": kw.negative_count, "boost_score": kw.boost_score}
+            for kw in boosted[:10]
+        ]
 
         return AnalyticsSummary(
             total_visits=total,
-            most_common_conditions=[{"condition": c, "count": n} for c, n in top_conditions],
-            most_common_medications=[{"medication": m, "count": n} for m, n in top_medications],
-            visits_over_time=[{"month": r["month"], "count": r["cnt"]} for r in time_rows],
+            risk_distribution={"low": 0, "medium": 0, "high": 0},
+            top_conditions=[{"condition": c, "count": n} for c, n in top_conditions],
+            top_medications=[{"medication": m, "count": n} for m, n in top_medications],
+            red_flag_frequency={},
+            visits_over_time=[{"date": r["month"], "count": r["cnt"]} for r in time_rows],
+            avg_risk_score=0.0,
             extraction_accuracy_rate=fb.extraction_accuracy_rate,
             literature_relevance_rate=fb.literature_relevance_rate,
-            top_boosted_keywords=top_kw[:10],
+            top_boosted_keywords=top_kw,
         )
     finally:
         conn.close()

@@ -100,13 +100,13 @@ def find_relevant_trials(
 
         trials.append(ClinicalTrial(
             nct_id=nct_id,
-            title=title,
+            brief_title=title,
             status=status,
             conditions=trial_conditions,
             interventions=interventions,
             location=location,
             url=f"https://clinicaltrials.gov/study/{nct_id}",
-            match_explanation="; ".join(explanation_parts),
+            why_it_matches="; ".join(explanation_parts),
         ))
 
     return trials
