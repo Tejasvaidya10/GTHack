@@ -30,10 +30,10 @@ export interface Medication {
   name: string;
   dose: string;
   frequency: string;
-  duration?: string;
+  duration: string;
   instructions: string;
-  evidence?: string;
-  status?: "active" | "review" | "stopped";
+  evidence: string;
+  verified?: number;
 }
 
 export interface TestOrdered {
@@ -41,29 +41,34 @@ export interface TestOrdered {
   instructions: string;
   timeline: string;
   evidence: string;
+  verified?: number;
 }
 
 export interface FollowUpItem {
   action: string;
   date_or_timeline: string;
   evidence: string;
+  verified?: number;
 }
 
 export interface LifestyleRecommendation {
   recommendation: string;
   details: string;
   evidence: string;
+  verified?: number;
 }
 
 export interface RedFlagForPatient {
   warning: string;
   evidence: string;
+  verified?: number;
 }
 
 export interface QAItem {
   question: string;
   answer: string;
   evidence: string;
+  verified?: number;
 }
 
 export interface PatientSummary {
@@ -78,25 +83,20 @@ export interface PatientSummary {
 
 // ─── Clinician SOAP Note ──────────────────────────────────────────────────────
 export interface SOAPSection {
-  chief_complaint?: string;
-  history_of_present_illness?: string;
-  review_of_systems?: string;
-  vitals?: string;
-  physical_exam_findings?: string;
-  diagnoses?: string[];
-  differential_diagnoses?: string[];
-  clinical_impression?: string;
-  medications?: Medication[];
-  tests_ordered?: TestOrdered[];
-  referrals?: string[];
-  follow_up?: string;
-  patient_education?: string;
+  findings: string[];
   evidence: string[];
+}
+
+export interface ObjectiveSection extends SOAPSection {
+  vital_signs: string[];
+  physical_exam: string[];
+  mental_state_exam: string[];
+  lab_results: string[];
 }
 
 export interface SOAPNote {
   subjective: SOAPSection;
-  objective: SOAPSection;
+  objective: ObjectiveSection;
   assessment: SOAPSection;
   plan: SOAPSection;
 }
@@ -111,31 +111,6 @@ export interface ClinicianNote {
   soap_note: SOAPNote;
   problem_list: string[];
   action_items: ActionItem[];
-}
-
-// ─── Risk Assessment ──────────────────────────────────────────────────────────
-export type RiskLevel = "low" | "medium" | "high";
-
-export interface RiskFactor {
-  factor: string;
-  points: number;
-  evidence: string;
-}
-
-export interface RedFlag {
-  flag: string;
-  severity: "high" | "medium" | "low";
-  category: string;
-  evidence: string;
-  recommended_action: string;
-}
-
-export interface RiskAssessment {
-  risk_score: number;
-  risk_level: RiskLevel;
-  risk_factors: RiskFactor[];
-  red_flags: RedFlag[];
-  total_factors_detected: number;
 }
 
 // ─── Clinical Trials ──────────────────────────────────────────────────────────
@@ -208,7 +183,6 @@ export interface VisitRecord {
   raw_transcript: string;
   patient_summary: PatientSummary;
   clinician_note: ClinicianNote;
-  risk_assessment: RiskAssessment;
   clinical_trials: ClinicalTrial[];
   literature_results: LiteratureResult[];
   transcript_segments: TranscriptSegment[];
@@ -217,12 +191,9 @@ export interface VisitRecord {
 // ─── Analytics ────────────────────────────────────────────────────────────────
 export interface AnalyticsSummary {
   total_visits: number;
-  risk_distribution: { low: number; medium: number; high: number };
   top_conditions: { condition: string; count: number }[];
   top_medications: { medication: string; count: number }[];
-  red_flag_frequency: Record<string, number>;
   visits_over_time: { date: string; count: number }[];
-  avg_risk_score: number;
   extraction_accuracy_rate: number;
   literature_relevance_rate: number;
   top_boosted_keywords: BoostedKeyword[];
@@ -237,26 +208,6 @@ export interface TranscribeResponse {
   duration: number;
 }
 
-export interface AnalyzeResponse {
-  visit_id: number;
-  patient_summary: PatientSummary;
-  clinician_note: ClinicianNote;
-  risk_assessment: RiskAssessment;
-  clinical_trials: ClinicalTrial[];
-  literature: LiteratureResult[];
-}
-
-// ─── Auth (simulated) ─────────────────────────────────────────────────────────
-export type UserRole = "patient" | "clinician";
-
-export interface AuthUser {
-  name: string;
-  email: string;
-  role: UserRole;
-  phone?: string;
-  sms_consent?: boolean;
-}
-// ─── Grounding / Hallucination Detection ──────────────────────────────────────
 export interface GroundingItem {
   category: string;
   item: string;
@@ -275,4 +226,24 @@ export interface GroundingReport {
   grounded_count: number;
   flagged_count: number;
   items: GroundingItem[];
+}
+
+export interface AnalyzeResponse {
+  visit_id: number;
+  patient_summary: PatientSummary;
+  clinician_note: ClinicianNote;
+  clinical_trials: ClinicalTrial[];
+  literature: LiteratureResult[];
+  grounding?: GroundingReport;
+}
+
+// ─── Auth (simulated) ─────────────────────────────────────────────────────────
+export type UserRole = "patient" | "clinician";
+
+export interface AuthUser {
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  sms_consent?: boolean;
 }

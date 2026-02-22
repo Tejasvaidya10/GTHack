@@ -1,5 +1,4 @@
 import type {
-  GroundingReport,
   TranscribeResponse,
   AnalyzeResponse,
   VisitRecord,
@@ -40,17 +39,10 @@ export async function analyzeTranscript(payload: {
   visit_type: string;
   tags: string[];
 }): Promise<AnalyzeResponse> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout
-  try {
-    return await request<AnalyzeResponse>("/api/analyze", {
-      method: "POST",
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+  return request<AnalyzeResponse>("/api/analyze", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 // ─── Visits ───────────────────────────────────────────────────────────────────
@@ -120,11 +112,6 @@ export async function getFeedback(visitId: number): Promise<FeedbackItem[]> {
 
 export async function getFeedbackAnalytics(): Promise<FeedbackAnalytics> {
   return request<FeedbackAnalytics>("/api/feedback/analytics");
-}
-
-// ─── Grounding ────────────────────────────────────────────────────────────────
-export async function getGrounding(visitId: number): Promise<GroundingReport> {
-  return request<GroundingReport>(`/api/grounding/${visitId}`);
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
