@@ -26,7 +26,7 @@ Return this JSON structure (replace descriptions with actual extracted data):
       "evidence": ["<direct quotes from transcript>"]
     },
     "assessment": {
-      "findings": ["<extract: diagnoses, differentials, clinical reasoning>"],
+      "findings": ["<extract: short medical condition names ONLY, e.g. chest pain, hypertension, type 2 diabetes — NOT full sentences>"],
       "evidence": ["<direct quotes from transcript>"]
     },
     "plan": {

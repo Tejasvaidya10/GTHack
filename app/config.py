@@ -7,7 +7,7 @@ load_dotenv()
 
 # Ollama LLM settings
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:latest")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:latest")
 
 # Whisper transcription
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
@@ -35,5 +35,5 @@ SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
 # LLM settings
 LLM_TEMPERATURE = 0.1
 LLM_MAX_TOKENS = 8192
-LLM_TIMEOUT_SECONDS = 300
+LLM_TIMEOUT_SECONDS = 600
 LLM_MAX_RETRIES = 2

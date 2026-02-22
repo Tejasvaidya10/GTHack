@@ -15,6 +15,33 @@ from models.schemas import VisitRecord
 from models.database import save_visit
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_conditions(raw_conditions):
+    import re
+    STRIP_PREFIXES = [
+        r"^patient\s+(presents?|has|reports?|complains?|exhibits?)\s+(with|of|about)?\s*",
+        r"^symptoms?\s+suggestive\s+of\s+(possible\s+)?",
+        r"^possible\s+",
+        r"^probable\s+",
+        r"^suspected\s+",
+        r"^diagnosis\s+of\s+",
+        r"^working\s+diagnosis:?\s*",
+        r"^primary\s+diagnosis:?\s*",
+        r"^differential:?\s*",
+    ]
+    clean = []
+    for finding in raw_conditions:
+        text = finding.strip().rstrip('.')
+        for pattern in STRIP_PREFIXES:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+        parts = re.split(r',\s*|\s+including\s+|\s+such\s+as\s+|\s+and\s+', text)
+        for part in parts:
+            part = part.strip().rstrip('.')
+            if part and len(part) > 2 and len(part) < 80:
+                clean.append(part)
+    return clean if clean else raw_conditions
+
 router = APIRouter()
 
 
@@ -54,7 +81,8 @@ async def analyze(req: AnalyzeRequest):
         clinician_note = extract_clinician_note(safe_transcript)
 
         # Extract conditions and drugs for trial/literature search
-        conditions = clinician_note.soap_note.assessment.findings
+        raw_conditions = clinician_note.soap_note.assessment.findings
+        conditions = _clean_conditions(raw_conditions)
         drugs = [med.name for med in patient_summary.medications]
 
         # Clinical trials search

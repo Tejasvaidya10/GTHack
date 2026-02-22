@@ -43,9 +43,9 @@ def api_post(endpoint: str, data: dict = None, files: dict = None):
     """Make a POST request to the FastAPI backend."""
     try:
         if files:
-            r = requests.post(f"{API_BASE}{endpoint}", files=files, timeout=300)
+            r = requests.post(f"{API_BASE}{endpoint}", files=files, timeout=600)
         else:
-            r = requests.post(f"{API_BASE}{endpoint}", json=data, timeout=300)
+            r = requests.post(f"{API_BASE}{endpoint}", json=data, timeout=600)
         r.raise_for_status()
         return r.json()
     except requests.ConnectionError:

@@ -39,6 +39,9 @@ def _normalize_string_lists(data: dict) -> dict:
         for item in data:
             if isinstance(item, dict):
                 # If it has known schema keys, keep it as a dict (structured object)
+                # Fix evidence field if it's a list instead of string
+                if 'evidence' in item and isinstance(item['evidence'], list):
+                    item['evidence'] = '; '.join(str(e) for e in item['evidence'])
                 if any(k in STRUCTURED_KEYS for k in item.keys()):
                     result.append(_normalize_string_lists(item))
                 else:
