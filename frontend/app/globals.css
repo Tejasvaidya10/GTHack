@@ -1,0 +1,251 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* MedSift AI brand palette — blues + teal-green from the logo */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.13 0.03 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0.03 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.03 250);
+  /* Primary: MedSift blue #1565c0 */
+  --primary: oklch(0.43 0.19 258);
+  --primary-foreground: oklch(0.99 0 0);
+  /* Secondary: light blue-gray */
+  --secondary: oklch(0.95 0.02 240);
+  --secondary-foreground: oklch(0.25 0.06 258);
+  --muted: oklch(0.96 0.01 240);
+  --muted-foreground: oklch(0.52 0.04 250);
+  /* Accent: teal-green from logo #00c853 */
+  --accent: oklch(0.72 0.18 162);
+  --accent-foreground: oklch(0.13 0.05 160);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.91 0.02 240);
+  --input: oklch(0.91 0.02 240);
+  --ring: oklch(0.55 0.15 258);
+  /* Charts: brand colors */
+  --chart-1: oklch(0.43 0.19 258);   /* brand blue */
+  --chart-2: oklch(0.72 0.18 162);   /* teal-green */
+  --chart-3: oklch(0.58 0.16 210);   /* light blue */
+  --chart-4: oklch(0.82 0.14 140);   /* mint */
+  --chart-5: oklch(0.22 0.09 260);   /* dark navy */
+  --sidebar: oklch(0.17 0.05 258);
+  --sidebar-foreground: oklch(0.95 0.01 240);
+  --sidebar-primary: oklch(0.72 0.18 162);
+  --sidebar-primary-foreground: oklch(0.13 0.05 160);
+  --sidebar-accent: oklch(0.25 0.07 258);
+  --sidebar-accent-foreground: oklch(0.95 0.01 240);
+  --sidebar-border: oklch(0.28 0.06 258);
+  --sidebar-ring: oklch(0.55 0.15 258);
+}
+
+.dark {
+  --background: oklch(0.12 0.04 258);
+  --foreground: oklch(0.95 0.01 240);
+  --card: oklch(0.17 0.05 258);
+  --card-foreground: oklch(0.95 0.01 240);
+  --popover: oklch(0.17 0.05 258);
+  --popover-foreground: oklch(0.95 0.01 240);
+  --primary: oklch(0.6 0.18 210);
+  --primary-foreground: oklch(0.12 0.04 258);
+  --secondary: oklch(0.25 0.06 258);
+  --secondary-foreground: oklch(0.95 0.01 240);
+  --muted: oklch(0.22 0.05 258);
+  --muted-foreground: oklch(0.65 0.04 250);
+  --accent: oklch(0.72 0.18 162);
+  --accent-foreground: oklch(0.12 0.04 258);
+  --destructive: oklch(0.65 0.22 22);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.6 0.18 210);
+  --chart-1: oklch(0.6 0.18 210);
+  --chart-2: oklch(0.72 0.18 162);
+  --chart-3: oklch(0.75 0.14 190);
+  --chart-4: oklch(0.85 0.12 140);
+  --chart-5: oklch(0.5 0.15 258);
+  --sidebar: oklch(0.12 0.04 258);
+  --sidebar-foreground: oklch(0.95 0.01 240);
+  --sidebar-primary: oklch(0.72 0.18 162);
+  --sidebar-primary-foreground: oklch(0.12 0.04 258);
+  --sidebar-accent: oklch(0.2 0.06 258);
+  --sidebar-accent-foreground: oklch(0.95 0.01 240);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.6 0.18 210);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Risk level utility classes */
+.risk-low    { @apply text-green-600 bg-green-50 border-green-200; }
+.risk-medium { @apply text-amber-600 bg-amber-50 border-amber-200; }
+.risk-high   { @apply text-red-600   bg-red-50   border-red-200; }
+
+/* Gradient text matching the logo "MedSift" */
+.gradient-text {
+  background: linear-gradient(90deg, #1565c0 0%, #0288d1 40%, #00c853 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated pipeline step */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.pipeline-active { animation: pulse-dot 1.2s ease-in-out infinite; }
+
+/* ── Hero / page animations (defined here so they load in <head> before first paint) ── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes mockItemIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes riskBarFill {
+  from { width: 0%; }
+  to   { width: 34%; }
+}
+@keyframes ecgDraw {
+  from { stroke-dashoffset: 2000; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes ecgDraw2 {
+  from { stroke-dashoffset: 1600; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes ecgMockDraw {
+  from { stroke-dashoffset: 600; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.04; }
+  50%       { opacity: 0.12; }
+}
+@keyframes crossFade {
+  0%, 100% { opacity: 0.06; }
+  50%       { opacity: 0.16; }
+}
+@keyframes floatUp {
+  0%, 100% { transform: translateY(0);    opacity: 0.5; }
+  50%       { transform: translateY(-10px); opacity: 1; }
+}
+
+/* Hero item enter — starts hidden so there is no white flash before animation runs */
+.hero-item {
+  animation: fadeSlideUp 0.7s ease both;
+  opacity: 0;
+}
+.mock-preview {
+  animation: fadeSlideRight 0.8s ease 0.3s both;
+  opacity: 0;
+}
+.mock-item {
+  animation: mockItemIn 0.5s ease both;
+  opacity: 0;
+}
+.risk-bar-fill {
+  animation: riskBarFill 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) 4s both;
+  width: 0%;
+}
+.ecg1  { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: ecgDraw  4s ease-in-out 0.5s forwards; }
+.ecg2  { stroke-dasharray: 1600; stroke-dashoffset: 1600; animation: ecgDraw2 5s ease-in-out 1.2s forwards; }
+.ecgMockLine { stroke-dasharray: 600; stroke-dashoffset: 600; animation: ecgMockDraw 3s ease-in-out 4.5s forwards; }
+.glow1 { animation: pulseGlow 6s ease-in-out infinite; }
+.glow2 { animation: pulseGlow 8s ease-in-out 2s infinite; }
+.c1    { animation: crossFade 4s ease-in-out infinite; }
+.c2    { animation: crossFade 5s ease-in-out 1s infinite; }
+.c3    { animation: crossFade 3.5s ease-in-out 2s infinite; }
+.px1   { animation: floatUp 3.1s ease-in-out infinite; }
+.px2   { animation: floatUp 3.8s ease-in-out 0.6s infinite; }
+.px3   { animation: floatUp 2.9s ease-in-out 1.2s infinite; }
+.px4   { animation: floatUp 4.2s ease-in-out 0.3s infinite; }
+.px5   { animation: floatUp 3.5s ease-in-out 0.9s infinite; }
+
+/* ── New homepage animations ── */
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+/* Print styles for PDF-friendly output */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+}
