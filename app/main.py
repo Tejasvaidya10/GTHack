@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.database import init_db
-from api.routes import transcribe, analyze, visits, export, trials, literature, feedback, analytics, live_transcribe
+from api.routes import transcribe, analyze, visits, export, trials, literature, feedback, analytics, live_transcribe, grounding
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ app.include_router(literature.router, tags=["Literature"])
 app.include_router(feedback.router, tags=["Feedback"])
 app.include_router(analytics.router, tags=["Analytics"])
 app.include_router(live_transcribe.router, tags=["Live Transcription"])
+app.include_router(grounding.router, tags=["Grounding"])
 
 
 @app.get("/")
