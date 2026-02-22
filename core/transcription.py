@@ -1,4 +1,4 @@
-"""Whisper transcription with pyannote.audio speaker diarization."""
+"""Whisper transcription with pause-based speaker diarization."""
 
 import os
 import logging
@@ -19,17 +19,16 @@ if not shutil.which("ffmpeg"):
 import whisper
 
 from models.schemas import TranscriptionResult, TranscriptSegment
-from app.config import WHISPER_MODEL_SIZE, WHISPER_DEVICE, HF_TOKEN
+from app.config import WHISPER_MODEL_SIZE, WHISPER_DEVICE
 
 logger = logging.getLogger(__name__)
 
 # Module-level model cache
 _model_cache: dict[str, whisper.Whisper] = {}
-_diarization_pipeline = None
 
 SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".webm", ".flac", ".ogg"}
 
-# Pause threshold (seconds) — fallback if pyannote unavailable
+# Pause threshold (seconds) for speaker change detection
 SPEAKER_CHANGE_PAUSE = 1.5
 
 # Speakers for a 2-person medical visit
@@ -45,116 +44,11 @@ def _get_model(model_size: str) -> whisper.Whisper:
     return _model_cache[model_size]
 
 
-def _get_diarization_pipeline():
-    """Load and cache pyannote speaker diarization pipeline."""
-    global _diarization_pipeline
-    if _diarization_pipeline is not None:
-        return _diarization_pipeline
+def _diarize_segments(segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
+    """Assign speaker labels based on pause detection.
 
-    if not HF_TOKEN:
-        logger.warning("HF_TOKEN not set — falling back to pause-based diarization")
-        return None
-
-    try:
-        from pyannote.audio import Pipeline
-        logger.info("Loading pyannote speaker diarization pipeline...")
-        _diarization_pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            token=HF_TOKEN,
-        )
-        # Move to GPU if available
-        import torch
-        if torch.cuda.is_available():
-            _diarization_pipeline.to(torch.device("cuda"))
-            logger.info("Pyannote pipeline loaded on CUDA")
-        else:
-            logger.info("Pyannote pipeline loaded on CPU")
-        return _diarization_pipeline
-    except Exception as e:
-        logger.warning(f"Failed to load pyannote pipeline: {e}. Falling back to pause-based diarization.")
-        return None
-
-
-def _diarize_with_pyannote(
-    file_path: str,
-    segments: list[TranscriptSegment],
-) -> list[TranscriptSegment]:
-    """Assign speaker labels using pyannote.audio neural diarization.
-
-    Runs pyannote on the audio file to detect speaker turns, then matches
-    each Whisper segment to the speaker who is talking at that time.
-    """
-    pipeline = _get_diarization_pipeline()
-    if pipeline is None:
-        return _diarize_segments_fallback(segments)
-
-    try:
-        # Run pyannote diarization (expects 2 speakers for medical visit)
-        # __call__ wraps the file path and forwards kwargs to .apply()
-        diarization = pipeline(file_path, num_speakers=2)
-    except Exception as e:
-        logger.warning(f"Pyannote diarization failed: {e}. Using fallback.")
-        return _diarize_segments_fallback(segments)
-
-    # Build a mapping of speaker labels from pyannote
-    # pyannote returns labels like "SPEAKER_00", "SPEAKER_01"
-    # We map the first speaker detected to "Doctor" and the second to "Patient"
-    speaker_map = {}
-    speaker_counter = 0
-
-    # Collect all pyannote turns into a list for efficient lookup
-    turns = []
-    # pyannote v4 returns DiarizeOutput; access .speaker_diarization for the Annotation
-    annotation = getattr(diarization, "speaker_diarization", diarization)
-    for turn, _, speaker_label in annotation.itertracks(yield_label=True):
-        if speaker_label not in speaker_map:
-            if speaker_counter < len(SPEAKERS):
-                speaker_map[speaker_label] = SPEAKERS[speaker_counter]
-                speaker_counter += 1
-            else:
-                speaker_map[speaker_label] = f"Speaker {speaker_counter + 1}"
-                speaker_counter += 1
-        turns.append((turn.start, turn.end, speaker_map[speaker_label]))
-
-    logger.info(f"Pyannote detected {len(speaker_map)} speakers with {len(turns)} turns")
-
-    # Match each Whisper segment to a pyannote speaker
-    labeled = []
-    for seg in segments:
-        seg_mid = (seg.start_time + seg.end_time) / 2.0
-        best_speaker = "Unknown"
-        best_overlap = 0.0
-
-        for turn_start, turn_end, speaker in turns:
-            # Calculate overlap between segment and turn
-            overlap_start = max(seg.start_time, turn_start)
-            overlap_end = min(seg.end_time, turn_end)
-            overlap = max(0.0, overlap_end - overlap_start)
-
-            if overlap > best_overlap:
-                best_overlap = overlap
-                best_speaker = speaker
-
-        # If no overlap found, check which turn the midpoint falls in
-        if best_overlap == 0.0:
-            for turn_start, turn_end, speaker in turns:
-                if turn_start <= seg_mid <= turn_end:
-                    best_speaker = speaker
-                    break
-
-        labeled.append(TranscriptSegment(
-            start_time=seg.start_time,
-            end_time=seg.end_time,
-            text=f"{best_speaker}: {seg.text}",
-        ))
-
-    return labeled
-
-
-def _diarize_segments_fallback(segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
-    """Fallback: assign speaker labels based on pause detection.
-
-    Used when pyannote is not available (no HF_TOKEN or import failure).
+    Alternates between Doctor and Patient when a pause exceeding
+    SPEAKER_CHANGE_PAUSE seconds is detected between segments.
     """
     if not segments:
         return segments
@@ -181,19 +75,15 @@ def _diarize_segments_fallback(segments: list[TranscriptSegment]) -> list[Transc
 def transcribe_audio(
     file_path: str,
     model_size: Optional[str] = None,
-    use_pyannote: bool = True,
 ) -> TranscriptionResult:
     """Transcribe an audio file using Whisper with speaker diarization.
 
-    Uses pyannote.audio for neural speaker diarization when available,
-    falls back to pause-based heuristic otherwise.
+    Uses pause-based heuristic to assign speaker labels (Doctor / Patient).
 
     Args:
         file_path: Path to the audio file.
         model_size: Whisper model size (tiny, base, small, medium, large).
                     Defaults to config value.
-        use_pyannote: Whether to use pyannote for diarization. Set False for
-                      short chunks (live transcription) where it's too slow.
 
     Returns:
         TranscriptionResult with full text, segments, language, and duration.
@@ -233,11 +123,8 @@ def transcribe_audio(
     # Calculate duration from last segment end time
     duration = segments[-1].end_time if segments else 0.0
 
-    # Add speaker labels — pyannote for full files, fallback for short chunks
-    if use_pyannote:
-        diarized_segments = _diarize_with_pyannote(file_path, segments)
-    else:
-        diarized_segments = _diarize_segments_fallback(segments)
+    # Add speaker labels via pause-based diarization
+    diarized_segments = _diarize_segments(segments)
     diarized_text = _format_diarized_transcript(diarized_segments)
 
     return TranscriptionResult(

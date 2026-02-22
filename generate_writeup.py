@@ -110,7 +110,7 @@ doc.add_paragraph(
 doc.add_heading("3. Solution Overview", level=1)
 doc.add_paragraph("MedSift AI provides an end-to-end pipeline that:")
 steps = [
-    ("Records & Transcribes", "Captures doctor-patient conversations and converts speech to text using OpenAI Whisper with neural speaker diarization (pyannote.audio)."),
+    ("Records & Transcribes", "Captures doctor-patient conversations and converts speech to text using OpenAI Whisper with pause-based speaker diarization."),
     ("Redacts PHI", "Automatically detects and masks Protected Health Information (names, SSNs, phone numbers, medical record numbers) using Microsoft Presidio before any data is processed or stored."),
     ("Extracts Structured Data", "Uses a local LLM (LLaMA 3.1 via Ollama) to extract a clinician-facing SOAP note and a patient-facing summary with medications, tests, follow-ups, and lifestyle recommendations."),
     ("Validates Extractions", "Cross-references every extracted item against the original transcript to verify accuracy, marking items as verified or unverified."),
@@ -135,7 +135,7 @@ arch_text = (
     "Audio Input\n"
     "    |\n"
     "    v\n"
-    "OpenAI Whisper (Local) + pyannote Speaker Diarization\n"
+    "OpenAI Whisper (Local) + Pause-Based Speaker Diarization\n"
     "    |\n"
     "    v\n"
     "Microsoft Presidio PHI Redaction (Local)\n"
@@ -170,7 +170,7 @@ layers = [
     ("API Layer", "FastAPI REST backend with 11+ endpoints handling transcription, analysis, CRUD operations, export, feedback, and analytics."),
     ("Core Processing Layer", "Modular Python services for transcription, PHI redaction, LLM extraction, validation, clinical trials search, literature search, and PDF generation."),
     ("Data Layer", "SQLite database with WAL mode, FTS5 full-text search, JSON storage for nested objects, and automated trigger-based indexing."),
-    ("AI/ML Layer", "OpenAI Whisper for speech-to-text, pyannote.audio for speaker diarization, Microsoft Presidio + spaCy for NER-based PHI detection, and Ollama LLaMA 3.1 for structured extraction."),
+    ("AI/ML Layer", "OpenAI Whisper for speech-to-text, pause-based speaker diarization, Microsoft Presidio + spaCy for NER-based PHI detection, and Ollama LLaMA 3.1 for structured extraction."),
 ]
 for layer_name, layer_desc in layers:
     p = doc.add_paragraph()
@@ -194,8 +194,7 @@ tech_rows = [
     ("Backend Framework", "FastAPI + Uvicorn", "Async REST API server"),
     ("Data Validation", "Pydantic v2", "Schema validation & serialization"),
     ("Speech-to-Text", "OpenAI Whisper", "Local audio transcription (base model)"),
-    ("Speaker Diarization", "pyannote.audio 3.1", "Neural speaker identification (Doctor/Patient)"),
-    ("Deep Learning", "PyTorch", "Backend for Whisper & pyannote models"),
+    ("Deep Learning", "PyTorch", "Backend for Whisper models"),
     ("PHI Redaction", "Microsoft Presidio", "Named entity recognition for HIPAA compliance"),
     ("NLP Engine", "spaCy (en_core_web_lg)", "NER pipeline for Presidio"),
     ("Local LLM", "Ollama + LLaMA 3.1 (8B)", "Structured data extraction from transcripts"),
@@ -220,8 +219,8 @@ doc.add_heading("6.1 Audio Transcription with Speaker Diarization", level=2)
 doc.add_paragraph(
     "MedSift AI uses OpenAI's Whisper model running locally for speech-to-text conversion. "
     "It supports multiple audio formats (.mp3, .wav, .m4a, .webm, .flac, .ogg) and automatically "
-    "identifies speakers using pyannote.audio's neural diarization pipeline, labeling dialogue as "
-    "\"Doctor\" and \"Patient\". A fallback pause-based heuristic is available when pyannote is not configured."
+    "identifies speakers using a pause-based diarization heuristic, labeling dialogue as "
+    "\"Doctor\" and \"Patient\"."
 )
 doc.add_paragraph(
     "Live transcription is also supported, processing audio in real-time chunks with stateful speaker "
@@ -354,7 +353,7 @@ doc.add_heading("7. Privacy & HIPAA Compliance", level=1)
 doc.add_paragraph("MedSift AI is designed from the ground up for HIPAA compliance:")
 
 privacy_items = [
-    ("100% Local Processing", "All AI models (Whisper, LLaMA 3.1, Presidio, pyannote) run on the clinician's machine. No patient data is sent to any cloud service."),
+    ("100% Local Processing", "All AI models (Whisper, LLaMA 3.1, Presidio) run on the clinician's machine. No patient data is sent to any cloud service."),
     ("PHI Redaction Before Storage", "Transcripts are redacted before being processed by the LLM or saved to the database. Even if unredacted text is sent to the analysis endpoint, it is re-redacted as a safety net."),
     ("No Raw PHI in Database", "The database only stores redacted transcripts with indexed placeholder tags."),
     ("External APIs Receive Only De-identified Data", "ClinicalTrials.gov and PubMed/Semantic Scholar only receive condition names and drug names — never patient identifiers."),
@@ -437,7 +436,7 @@ doc.add_heading("10. How It Works (End-to-End Pipeline)", level=1)
 
 pipeline_steps = [
     ("Step 1: Audio Capture", "The clinician uploads an audio recording of the patient visit or uses live transcription via the browser microphone."),
-    ("Step 2: Speech-to-Text", "OpenAI Whisper (base model, running locally) converts the audio to text segments with timestamps. pyannote.audio identifies which segments belong to the Doctor and which to the Patient."),
+    ("Step 2: Speech-to-Text", "OpenAI Whisper (base model, running locally) converts the audio to text segments with timestamps. A pause-based diarization heuristic identifies which segments belong to the Doctor and which to the Patient."),
     ("Step 3: PHI Redaction", "Microsoft Presidio scans the transcript using spaCy's NER model and custom regex recognizers to identify and mask all Protected Health Information with indexed tags like [PERSON_1]."),
     ("Step 4: LLM Extraction", "The redacted transcript is sent to Ollama (LLaMA 3.1, running locally) with carefully crafted prompts. Two separate extractions run: one for the clinician SOAP note and one for the patient-friendly summary. The LLM returns structured JSON which is parsed with retry logic and validated against Pydantic schemas."),
     ("Step 5: Evidence Validation", "Each extracted item's evidence field is cross-referenced against the original transcript. Items are marked as verified (grounded in the conversation) or unverified (potentially inferred)."),

@@ -161,10 +161,9 @@ async def process_audio_chunk(
 
     try:
         # Run blocking Whisper call in thread pool
-        # Skip pyannote for live chunks — too slow for 5s clips
         loop = asyncio.get_event_loop()
         transcription = await loop.run_in_executor(
-            None, lambda: transcribe_audio(tmp_path, use_pyannote=False)
+            None, lambda: transcribe_audio(tmp_path)
         )
     finally:
         # HIPAA: delete temp audio immediately

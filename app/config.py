@@ -22,9 +22,6 @@ def _detect_device() -> str:
 
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", _detect_device())
 
-# Speaker diarization (pyannote.audio)
-HF_TOKEN = os.getenv("HF_TOKEN", "")
-
 # Database
 DATABASE_PATH = os.getenv("DATABASE_PATH", "data/medsift.db")
 
