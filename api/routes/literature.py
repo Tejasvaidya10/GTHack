@@ -27,11 +27,7 @@ async def get_literature(
 
     # Return cached results if available and refresh not requested
     if not refresh and visit.literature_results:
-        return {
-            "visit_id": visit_id,
-            "papers": [r.model_dump() for r in visit.literature_results],
-            "cached": True,
-        }
+        return [r.model_dump() for r in visit.literature_results]
 
     # Extract conditions and drugs
     conditions = []
@@ -43,7 +39,7 @@ async def get_literature(
         drugs = [med.name for med in visit.patient_summary.medications]
 
     if not conditions and not drugs:
-        return {"papers": [], "message": "No conditions or drugs found for this visit"}
+        return []
 
     papers = search_literature(conditions, drugs)
 
@@ -59,10 +55,4 @@ async def get_literature(
         finally:
             conn.close()
 
-    return {
-        "visit_id": visit_id,
-        "papers": [r.model_dump() for r in papers],
-        "cached": False,
-        "search_conditions": conditions,
-        "search_drugs": drugs,
-    }
+    return [r.model_dump() for r in papers]

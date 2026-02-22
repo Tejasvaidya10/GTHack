@@ -26,12 +26,7 @@ async def get_trials(visit_id: int):
         drugs = [med.name for med in visit.patient_summary.medications]
 
     if not conditions and not drugs:
-        return {"trials": [], "message": "No conditions or drugs found for this visit"}
+        return []
 
     trials = find_relevant_trials(conditions, drugs)
-    return {
-        "visit_id": visit_id,
-        "trials": [t.model_dump() for t in trials],
-        "search_conditions": conditions,
-        "search_drugs": drugs,
-    }
+    return [t.model_dump() for t in trials]

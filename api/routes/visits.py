@@ -24,12 +24,7 @@ async def list_visits(
 ):
     """List all visits with optional search, tag filter, and pagination."""
     visits = get_all_visits(search=search, tag=tag, sort=sort, limit=limit, offset=offset)
-    return {
-        "visits": [v.model_dump() for v in visits],
-        "count": len(visits),
-        "offset": offset,
-        "limit": limit,
-    }
+    return [v.model_dump() for v in visits]
 
 
 @router.get("/api/visits/{visit_id}")

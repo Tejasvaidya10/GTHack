@@ -8,20 +8,18 @@ Extract the following information and return it as a JSON object. Follow these r
 4. Return ONLY valid JSON. No markdown formatting. No explanation before or after the JSON.
 
 VISIT SUMMARY FORMAT:
-The "visit_summary" must be a warm, personal letter to the patient summarizing their visit. Follow this structure:
-- Start with "Dear [Patient's Name],"
-- Opening paragraph: Thank them for visiting and briefly describe the reason for the visit in their own words.
-- Middle paragraph(s): Summarize what was found during the examination, using plain language. Explain what the doctor observed and any symptoms discussed.
-- Treatment paragraph: Explain the diagnosis, what will happen next (tests, procedures, medications), and the recovery plan. Be clear and reassuring.
-- Closing: Encourage them to reach out with questions. End with a warm sign-off.
-- End with "[Doctor's Name]" and "[Contact Information]" as placeholders.
-- Write in second person ("you", "your"). Be empathetic and reassuring.
-- Do NOT use bullet points or headers in the visit summary — write it as flowing prose paragraphs.
+The "visit_summary" must be a clear, concise clinical summary written in plain language for the patient. Follow these rules:
+- Write 2-4 sentences maximum.
+- State the reason for the visit, the main finding/diagnosis, and the next steps.
+- Use second person ("you", "your"). Be clear and reassuring.
+- Do NOT write a letter. No "Dear", no sign-offs, no doctor names, no contact information.
+- Do NOT use bullet points or headers — write it as a single flowing paragraph.
+- Example: "You visited today for right shoulder pain after a rugby injury. The doctor found a dislocated shoulder joint and ordered an X-ray to check for fractures. You will need to keep your shoulder immobilized and may need a closed reduction procedure to put the joint back in place."
 
 Return this exact JSON structure:
 
 {
-  "visit_summary": "Dear [Patient's Name],\n\nThank you for visiting us today. During your appointment, we discussed...\n\n...\n\nWishing you a swift recovery,\n\n[Doctor's Name]\n[Contact Information]",
+  "visit_summary": "You visited today for [reason]. The doctor found [finding] and recommended [next steps]. [Recovery plan if applicable].",
   "medications": [
     {
       "name": "medication name",
