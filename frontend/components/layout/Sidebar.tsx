@@ -43,7 +43,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center h-16 border-b px-4 shrink-0">
         <Link href="/dashboard" className="flex items-center">
-          <div className="relative h-240 w-[240px]">
+          <div className="relative h-200 w-[200px]">
             <Image
               src="/logo.png"
               alt="MedSift AI"
