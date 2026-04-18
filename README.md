@@ -10,6 +10,16 @@ MedSift AI is a fully local, privacy-first healthcare conversation intelligence 
 
 ---
 
+## Highlights
+
+- **Fully local architecture** — Whisper (transcription), Presidio (PHI redaction), Ollama + LLaMA 3.1 (extraction). No OpenAI, no Anthropic, no cloud APIs. Total runtime cost: $0.
+- **PHI redacted before any LLM processing** — custom Presidio recognizers for MRN and Insurance IDs on top of the standard detectors
+- **Feedback loop** — clinicians rate extractions and papers; the system learns which keywords surface useful literature
+- **Deterministic risk scoring** — rule-based 0–100 score with 5 red flag categories (no LLM in the scoring path)
+- **13 REST endpoints**, 31 tests, SQLite + FTS5 full-text search, Streamlit demo UI
+
+---
+
 ## Architecture
 
 ```
